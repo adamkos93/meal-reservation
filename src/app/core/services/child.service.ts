@@ -1,5 +1,5 @@
 import { Injectable, inject } from '@angular/core';
-import { StorageService } from './storage.service';
+import { FirestoreService } from './firestore.service';
 import { DateService } from './date.service';
 import { Child, CreateChildDto } from '../../shared/models';
 
@@ -7,7 +7,7 @@ import { Child, CreateChildDto } from '../../shared/models';
   providedIn: 'root'
 })
 export class ChildService {
-  private storage = inject(StorageService);
+  private storage = inject(FirestoreService);
   private dateService = inject(DateService);
 
   async getAllChildren(): Promise<Child[]> {
@@ -28,6 +28,7 @@ export class ChildService {
       id: crypto.randomUUID(),
       nickname: dto.nickname.trim(),
       identifier: dto.identifier?.trim() || undefined,
+      accessCode: dto.accessCode.trim(),
       isActive: true,
       createdAt: new Date().toISOString()
     };
@@ -42,7 +43,8 @@ export class ChildService {
     const updated: Child = {
       ...child,
       nickname: dto.nickname?.trim() || child.nickname,
-      identifier: dto.identifier?.trim() || child.identifier
+      identifier: dto.identifier?.trim() || child.identifier,
+      accessCode: dto.accessCode?.trim() || child.accessCode
     };
     await this.storage.saveChild(updated);
     return updated;

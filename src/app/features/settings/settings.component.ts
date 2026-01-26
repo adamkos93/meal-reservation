@@ -1,8 +1,9 @@
-import { Component, inject, signal, ElementRef, ViewChild } from '@angular/core';
+import { Component, inject, signal, ElementRef, ViewChild, OnInit } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { RouterLink } from '@angular/router';
 import { AppState } from '../../state/app.state';
+import { AuthService } from '../../core/services/auth.service';
 
 @Component({
   selector: 'app-settings',
@@ -11,7 +12,7 @@ import { AppState } from '../../state/app.state';
   template: `
     <div class="settings-page">
       <header class="page-header">
-        <a routerLink="/" class="back-link">← Powrót</a>
+        <a routerLink="/admin" class="back-link">← Powrót</a>
         <h1>⚙️ Ustawienia</h1>
       </header>
 
@@ -20,9 +21,9 @@ import { AppState } from '../../state/app.state';
         <div class="setting-row">
           <label for="mealRate">Cena za jeden posiłek (PLN)</label>
           <div class="input-group">
-            <input 
-              type="number" 
-              id="mealRate" 
+            <input
+              type="number"
+              id="mealRate"
               [(ngModel)]="mealRate"
               min="0"
               step="0.01"
@@ -32,10 +33,47 @@ import { AppState } from '../../state/app.state';
             </button>
           </div>
         </div>
-        @if (saveSuccess()) {
-          <p class="success-message">✓ Zapisano pomyślnie</p>
-        }
       </section>
+
+      <section class="settings-section">
+        <h2>Godzina deadline'u</h2>
+        <div class="setting-row">
+          <label for="deadlineHour">Godzina, do której można odwołać posiłek (dzień wcześniej)</label>
+          <div class="input-group">
+            <select id="deadlineHour" [(ngModel)]="deadlineHour">
+              @for (hour of hours; track hour) {
+                <option [value]="hour">{{ hour }}:00</option>
+              }
+            </select>
+            <button class="btn primary" (click)="saveDeadlineHour()" [disabled]="isSaving()">
+              Zapisz
+            </button>
+          </div>
+        </div>
+      </section>
+
+      <section class="settings-section">
+        <h2>PIN Administratora</h2>
+        <div class="setting-row">
+          <label for="adminPin">Zmień PIN dostępu do panelu admina</label>
+          <div class="input-group">
+            <input
+              type="password"
+              id="adminPin"
+              [(ngModel)]="adminPin"
+              placeholder="Nowy PIN"
+              maxlength="10"
+            />
+            <button class="btn primary" (click)="saveAdminPin()" [disabled]="isSaving() || !adminPin">
+              Zmień PIN
+            </button>
+          </div>
+        </div>
+      </section>
+
+      @if (saveSuccess()) {
+        <div class="toast success">✓ Zapisano pomyślnie</div>
+      }
 
       <section class="settings-section">
         <h2>Kopia zapasowa danych</h2>
@@ -50,8 +88,8 @@ import { AppState } from '../../state/app.state';
           <button class="btn secondary" (click)="triggerImport()">
             📥 Importuj dane
           </button>
-          <input 
-            type="file" 
+          <input
+            type="file"
             #fileInput
             accept=".json"
             style="display: none"
@@ -84,7 +122,7 @@ import { AppState } from '../../state/app.state';
         </div>
         <div class="info-row">
           <span class="info-label">Deadline odwołania</span>
-          <span class="info-value">17:00 dzień wcześniej</span>
+          <span class="info-value">{{ state.settings().deadlineHour }}:00 dzień wcześniej</span>
         </div>
         <div class="info-row">
           <span class="info-label">Dni robocze</span>
@@ -317,6 +355,9 @@ export class SettingsComponent {
   state = inject(AppState);
 
   mealRate = this.state.settings().globalMealRate;
+  deadlineHour = this.state.settings().deadlineHour;
+  adminPin = '';
+  hours = Array.from({ length: 19 }, (_, i) => i + 5); // 5-23
   
   private _isSaving = signal(false);
   private _saveSuccess = signal(false);
@@ -338,6 +379,35 @@ export class SettingsComponent {
 
     try {
       await this.state.updateMealRate(this.mealRate);
+      this._saveSuccess.set(true);
+      setTimeout(() => this._saveSuccess.set(false), 3000);
+    } finally {
+      this._isSaving.set(false);
+    }
+  }
+
+  async saveDeadlineHour() {
+    this._isSaving.set(true);
+    this._saveSuccess.set(false);
+
+    try {
+      await this.state.updateDeadlineHour(this.deadlineHour);
+      this._saveSuccess.set(true);
+      setTimeout(() => this._saveSuccess.set(false), 3000);
+    } finally {
+      this._isSaving.set(false);
+    }
+  }
+
+  async saveAdminPin() {
+    if (!this.adminPin || this.adminPin.length < 4) return;
+
+    this._isSaving.set(true);
+    this._saveSuccess.set(false);
+
+    try {
+      await this.state.updateAdminPin(this.adminPin);
+      this.adminPin = '';
       this._saveSuccess.set(true);
       setTimeout(() => this._saveSuccess.set(false), 3000);
     } finally {

@@ -1,6 +1,6 @@
 import { Injectable, signal, computed, inject } from '@angular/core';
 import { Child, MealCancellation, AppSettings, DEFAULT_SETTINGS } from '../shared/models';
-import { StorageService, ChildService, MealService, DateService } from '../core/services';
+import { FirestoreService, ChildService, MealService, DateService } from '../core/services';
 
 export interface CalendarDay {
   date: Date;
@@ -17,7 +17,7 @@ export interface CalendarDay {
   providedIn: 'root'
 })
 export class AppState {
-  private storage = inject(StorageService);
+  private storage = inject(FirestoreService);
   private childService = inject(ChildService);
   private mealService = inject(MealService);
   private dateService = inject(DateService);
@@ -105,14 +105,15 @@ export class AppState {
   }
 
   // Children management
-  async addChild(nickname: string, identifier?: string): Promise<Child> {
-    const child = await this.childService.createChild({ nickname, identifier });
+  async addChild(nickname: string, identifier?: string, accessCode?: string): Promise<Child> {
+    const code = accessCode || nickname.toLowerCase().replace(/\s+/g, '') + Math.random().toString(36).substring(2, 6);
+    const child = await this.childService.createChild({ nickname, identifier, accessCode: code });
     this._children.update(children => [...children, child]);
     return child;
   }
 
-  async updateChild(id: string, nickname: string, identifier?: string): Promise<void> {
-    await this.childService.updateChild(id, { nickname, identifier });
+  async updateChild(id: string, nickname: string, identifier?: string, accessCode?: string): Promise<void> {
+    await this.childService.updateChild(id, { nickname, identifier, accessCode });
     await this.refreshChildren();
   }
 
@@ -192,6 +193,16 @@ export class AppState {
   // Settings
   async updateMealRate(rate: number): Promise<void> {
     const updated = await this.mealService.updateSettings({ globalMealRate: rate });
+    this._settings.set(updated);
+  }
+
+  async updateDeadlineHour(hour: number): Promise<void> {
+    const updated = await this.mealService.updateSettings({ deadlineHour: hour });
+    this._settings.set(updated);
+  }
+
+  async updateAdminPin(pin: string): Promise<void> {
+    const updated = await this.mealService.updateSettings({ adminPin: pin });
     this._settings.set(updated);
   }
 

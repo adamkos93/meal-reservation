@@ -3,6 +3,7 @@ import { CommonModule } from '@angular/common';
 import { RouterLink } from '@angular/router';
 import { AppState, CalendarDay } from '../../state/app.state';
 import { DateService } from '../../core/services';
+import { AuthService } from '../../core/services/auth.service';
 
 @Component({
   selector: 'app-dashboard',
@@ -11,7 +12,10 @@ import { DateService } from '../../core/services';
   template: `
     <div class="dashboard">
       <header class="dashboard-header">
-        <h1>🍽️ Odwoływanie Posiłków</h1>
+        <div class="header-top">
+          <h1>🍽️ Panel Administratora</h1>
+          <button class="logout-btn" (click)="logout()">🚪 Wyloguj</button>
+        </div>
         <p class="subtitle">Zarządzaj obiadami dla dzieci</p>
       </header>
 
@@ -90,16 +94,16 @@ import { DateService } from '../../core/services';
         </div>
 
         <nav class="quick-links">
-          <a routerLink="/cancellation" class="quick-link primary">
+          <a routerLink="/admin/cancellation" class="quick-link primary">
             📝 Odwołaj posiłek
           </a>
-          <a routerLink="/children" class="quick-link">
+          <a routerLink="/admin/children" class="quick-link">
             👶 Zarządzaj dziećmi
           </a>
-          <a routerLink="/reports" class="quick-link">
+          <a routerLink="/admin/reports" class="quick-link">
             📊 Raporty
           </a>
-          <a routerLink="/settings" class="quick-link">
+          <a routerLink="/admin/settings" class="quick-link">
             ⚙️ Ustawienia
           </a>
         </nav>
@@ -118,10 +122,32 @@ import { DateService } from '../../core/services';
       margin-bottom: 2rem;
     }
 
-    .dashboard-header h1 {
+    .header-top {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 0.5rem;
+    }
+
+    .header-top h1 {
       font-size: 1.75rem;
       margin: 0;
       color: #1a1a2e;
+    }
+
+    .logout-btn {
+      background: #f44336;
+      color: white;
+      border: none;
+      padding: 0.5rem 1rem;
+      border-radius: 8px;
+      font-size: 0.875rem;
+      cursor: pointer;
+      transition: background 0.2s;
+    }
+
+    .logout-btn:hover {
+      background: #d32f2f;
     }
 
     .subtitle {
@@ -352,6 +378,7 @@ import { DateService } from '../../core/services';
 export class DashboardComponent implements OnInit {
   state = inject(AppState);
   private dateService = inject(DateService);
+  private authService = inject(AuthService);
 
   dayNames = this.dateService.getShortDayNames();
 
@@ -364,5 +391,9 @@ export class DashboardComponent implements OnInit {
       this.state.selectDate(day.dateStr);
       // Navigate to cancellation page or open modal
     }
+  }
+
+  logout() {
+    this.authService.logout();
   }
 }

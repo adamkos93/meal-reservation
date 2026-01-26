@@ -11,7 +11,7 @@ import { DateService, MonthlyReport } from '../../core/services';
   template: `
     <div class="reports-page">
       <header class="page-header">
-        <a routerLink="/" class="back-link">← Powrót</a>
+        <a routerLink="/admin" class="back-link">← Powrót</a>
         <h1>📊 Raporty</h1>
       </header>
 

@@ -13,14 +13,14 @@ import { addDays } from 'date-fns';
   template: `
     <div class="cancellation-page">
       <header class="page-header">
-        <a routerLink="/" class="back-link">← Powrót</a>
+        <a routerLink="/admin" class="back-link">← Powrót</a>
         <h1>📝 Odwołaj Posiłek</h1>
       </header>
 
       @if (state.activeChildren().length === 0) {
         <div class="empty-state">
           <p>Brak aktywnych dzieci.</p>
-          <a routerLink="/children" class="btn primary">Dodaj dziecko</a>
+          <a routerLink="/admin/children" class="btn primary">Dodaj dziecko</a>
         </div>
       } @else {
         <section class="date-selector">

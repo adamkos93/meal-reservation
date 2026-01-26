@@ -12,37 +12,52 @@ import { Child } from '../../shared/models';
   template: `
     <div class="children-page">
       <header class="page-header">
-        <a routerLink="/" class="back-link">← Powrót</a>
+        <a routerLink="/admin" class="back-link">← Powrót</a>
         <h1>👶 Zarządzanie Dziećmi</h1>
       </header>
 
       <section class="add-child-section">
         <h2>Dodaj dziecko</h2>
         <form class="add-form" (ngSubmit)="addChild()">
-          <div class="form-group">
-            <label for="nickname">Nick / Imię *</label>
-            <input 
-              type="text" 
-              id="nickname" 
-              [(ngModel)]="newNickname" 
-              name="nickname"
-              placeholder="np. Zuzia, Dziecko1"
-              required
-            />
+          <div class="form-row">
+            <div class="form-group">
+              <label for="nickname">Nick / Imię *</label>
+              <input
+                type="text"
+                id="nickname"
+                [(ngModel)]="newNickname"
+                name="nickname"
+                placeholder="np. Zuzia, Dziecko1"
+                required
+              />
+            </div>
+            <div class="form-group">
+              <label for="identifier">Identyfikator</label>
+              <input
+                type="text"
+                id="identifier"
+                [(ngModel)]="newIdentifier"
+                name="identifier"
+                placeholder="np. 12, A5"
+              />
+            </div>
           </div>
-          <div class="form-group">
-            <label for="identifier">Identyfikator (opcjonalnie)</label>
-            <input 
-              type="text" 
-              id="identifier" 
-              [(ngModel)]="newIdentifier" 
-              name="identifier"
-              placeholder="np. 12, A5"
-            />
+          <div class="form-row">
+            <div class="form-group">
+              <label for="accessCode">Kod dostępu dla rodzica *</label>
+              <input
+                type="text"
+                id="accessCode"
+                [(ngModel)]="newAccessCode"
+                name="accessCode"
+                placeholder="np. zuzia2024"
+                required
+              />
+            </div>
+            <button type="submit" class="btn primary" [disabled]="!newNickname.trim() || !newAccessCode.trim()">
+              ➕ Dodaj
+            </button>
           </div>
-          <button type="submit" class="btn primary" [disabled]="!newNickname.trim()">
-            ➕ Dodaj
-          </button>
         </form>
         @if (error) {
           <p class="error-message">{{ error }}</p>
@@ -51,7 +66,7 @@ import { Child } from '../../shared/models';
 
       <section class="children-list-section">
         <h2>Lista dzieci ({{ state.children().length }})</h2>
-        
+
         @if (state.children().length === 0) {
           <p class="empty-message">Brak dodanych dzieci. Dodaj pierwsze dziecko powyżej.</p>
         } @else {
@@ -60,39 +75,49 @@ import { Child } from '../../shared/models';
               <li class="child-item" [class.inactive]="!child.isActive">
                 @if (editingId === child.id) {
                   <div class="edit-form">
-                    <input 
-                      type="text" 
-                      [(ngModel)]="editNickname" 
+                    <input
+                      type="text"
+                      [(ngModel)]="editNickname"
                       placeholder="Nick"
                     />
-                    <input 
-                      type="text" 
-                      [(ngModel)]="editIdentifier" 
+                    <input
+                      type="text"
+                      [(ngModel)]="editIdentifier"
                       placeholder="ID"
+                    />
+                    <input
+                      type="text"
+                      [(ngModel)]="editAccessCode"
+                      placeholder="Kod dostępu"
                     />
                     <button class="btn small" (click)="saveEdit(child.id)">💾</button>
                     <button class="btn small secondary" (click)="cancelEdit()">✕</button>
                   </div>
                 } @else {
                   <div class="child-info">
-                    <span class="child-nickname">{{ child.nickname }}</span>
-                    @if (child.identifier) {
-                      <span class="child-identifier">#{{ child.identifier }}</span>
-                    }
-                    @if (!child.isActive) {
-                      <span class="inactive-badge">Nieaktywne</span>
-                    }
+                    <div class="child-main">
+                      <span class="child-nickname">{{ child.nickname }}</span>
+                      @if (child.identifier) {
+                        <span class="child-identifier">#{{ child.identifier }}</span>
+                      }
+                      @if (!child.isActive) {
+                        <span class="inactive-badge">Nieaktywne</span>
+                      }
+                    </div>
+                    <div class="child-access-code">
+                      Kod: <code>{{ child.accessCode }}</code>
+                    </div>
                   </div>
                   <div class="child-actions">
-                    <button 
-                      class="btn small" 
+                    <button
+                      class="btn small"
                       (click)="startEdit(child)"
                       title="Edytuj"
                     >
                       ✏️
                     </button>
-                    <button 
-                      class="btn small" 
+                    <button
+                      class="btn small"
                       (click)="toggleActive(child.id)"
                       [title]="child.isActive ? 'Dezaktywuj' : 'Aktywuj'"
                     >
@@ -169,6 +194,12 @@ import { Child } from '../../shared/models';
     }
 
     .add-form {
+      display: flex;
+      flex-direction: column;
+      gap: 1rem;
+    }
+
+    .form-row {
       display: flex;
       flex-wrap: wrap;
       gap: 1rem;
@@ -262,6 +293,7 @@ import { Child } from '../../shared/models';
       align-items: center;
       padding: 1rem;
       border-bottom: 1px solid #eee;
+      gap: 1rem;
     }
 
     .child-item:last-child {
@@ -273,6 +305,13 @@ import { Child } from '../../shared/models';
     }
 
     .child-info {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      gap: 0.25rem;
+    }
+
+    .child-main {
       display: flex;
       align-items: center;
       gap: 0.5rem;
@@ -285,6 +324,18 @@ import { Child } from '../../shared/models';
     .child-identifier {
       color: #666;
       font-size: 0.875rem;
+    }
+
+    .child-access-code {
+      font-size: 0.75rem;
+      color: #888;
+    }
+
+    .child-access-code code {
+      background: #f5f5f5;
+      padding: 0.125rem 0.375rem;
+      border-radius: 4px;
+      font-family: monospace;
     }
 
     .inactive-badge {
@@ -357,22 +408,29 @@ export class ChildrenComponent {
 
   newNickname = '';
   newIdentifier = '';
+  newAccessCode = '';
   error = '';
 
   editingId: string | null = null;
   editNickname = '';
   editIdentifier = '';
+  editAccessCode = '';
 
   showDeleteConfirm = false;
   childToDelete: Child | null = null;
 
   async addChild() {
-    if (!this.newNickname.trim()) return;
+    if (!this.newNickname.trim() || !this.newAccessCode.trim()) return;
 
     try {
-      await this.state.addChild(this.newNickname.trim(), this.newIdentifier.trim() || undefined);
+      await this.state.addChild(
+        this.newNickname.trim(),
+        this.newIdentifier.trim() || undefined,
+        this.newAccessCode.trim()
+      );
       this.newNickname = '';
       this.newIdentifier = '';
+      this.newAccessCode = '';
       this.error = '';
     } catch (e) {
       this.error = 'Nie udało się dodać dziecka.';
@@ -383,12 +441,18 @@ export class ChildrenComponent {
     this.editingId = child.id;
     this.editNickname = child.nickname;
     this.editIdentifier = child.identifier || '';
+    this.editAccessCode = child.accessCode;
   }
 
   async saveEdit(id: string) {
-    if (!this.editNickname.trim()) return;
+    if (!this.editNickname.trim() || !this.editAccessCode.trim()) return;
 
-    await this.state.updateChild(id, this.editNickname.trim(), this.editIdentifier.trim() || undefined);
+    await this.state.updateChild(
+      id,
+      this.editNickname.trim(),
+      this.editIdentifier.trim() || undefined,
+      this.editAccessCode.trim()
+    );
     this.cancelEdit();
   }
 
@@ -396,6 +460,7 @@ export class ChildrenComponent {
     this.editingId = null;
     this.editNickname = '';
     this.editIdentifier = '';
+    this.editAccessCode = '';
   }
 
   async toggleActive(id: string) {

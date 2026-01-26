@@ -1,5 +1,5 @@
 import { Injectable, inject } from '@angular/core';
-import { StorageService } from './storage.service';
+import { FirestoreService } from './firestore.service';
 import { DateService } from './date.service';
 import { MealCancellation, CreateCancellationDto, AppSettings, DEFAULT_SETTINGS } from '../../shared/models';
 
@@ -36,7 +36,7 @@ export interface MonthlyReport {
   providedIn: 'root'
 })
 export class MealService {
-  private storage = inject(StorageService);
+  private storage = inject(FirestoreService);
   private dateService = inject(DateService);
 
   // Cancel a meal for a child on a specific date
