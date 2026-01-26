@@ -17,7 +17,7 @@ import { AppState } from '../../state/app.state';
       </header>
 
       <div class="month-selector">
-        <button class="nav-btn" (click)="previousMonth()">←</button>
+        <button class="nav-btn" (click)="previousMonth()" [disabled]="!canGoBack()">←</button>
         <span class="current-month">{{ currentMonthName() }} {{ currentYear() }}</span>
         <button class="nav-btn" (click)="nextMonth()">→</button>
       </div>
@@ -41,11 +41,11 @@ import { AppState } from '../../state/app.state';
               <span class="card-value cancelled">{{ summary()!.cancelledDays }}</span>
             </div>
             <div class="summary-card">
-              <span class="card-label">Posiłki do zapłaty</span>
+              <span class="card-label">Dni do zapłaty</span>
               <span class="card-value">{{ summary()!.mealsToPay }}</span>
             </div>
             <div class="summary-card">
-              <span class="card-label">Stawka</span>
+              <span class="card-label">Stawka dzienna</span>
               <span class="card-value">{{ summary()!.mealRate.toFixed(2) }} PLN</span>
             </div>
           </div>
@@ -79,11 +79,11 @@ import { AppState } from '../../state/app.state';
               <span>- {{ summary()!.cancelledDays }}</span>
             </div>
             <div class="calc-row">
-              <span>Posiłki do zapłaty</span>
+              <span>Dni do zapłaty</span>
               <span>= {{ summary()!.mealsToPay }}</span>
             </div>
             <div class="calc-row">
-              <span>Stawka za posiłek</span>
+              <span>Stawka za dzień wyżywienia</span>
               <span>× {{ summary()!.mealRate.toFixed(2) }} PLN</span>
             </div>
             <div class="calc-row total">
@@ -141,8 +141,13 @@ import { AppState } from '../../state/app.state';
       box-shadow: 0 2px 8px rgba(0,0,0,0.1);
     }
 
-    .nav-btn:hover {
+    .nav-btn:hover:not(:disabled) {
       background: #f5f5f5;
+    }
+
+    .nav-btn:disabled {
+      opacity: 0.5;
+      cursor: not-allowed;
     }
 
     .current-month {
@@ -291,6 +296,13 @@ export class ParentSummaryComponent implements OnInit {
     this.dateService.getMonthName(this.currentMonth())
   );
 
+  canGoBack = computed(() => {
+    const year = this.currentYear();
+    const month = this.currentMonth();
+    // Nie pozwalamy cofać się przed styczeń 2026
+    return !(year === 2026 && month === 0);
+  });
+
   summary = signal<{
     workingDays: number;
     cancelledDays: number;
@@ -350,6 +362,8 @@ export class ParentSummaryComponent implements OnInit {
   }
 
   async previousMonth() {
+    if (!this.canGoBack()) return;
+    
     const { year, month } = this.dateService.getPreviousMonth(
       this.currentYear(),
       this.currentMonth()

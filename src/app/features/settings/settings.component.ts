@@ -17,9 +17,9 @@ import { AuthService } from '../../core/services/auth.service';
       </header>
 
       <section class="settings-section">
-        <h2>Stawka za obiad</h2>
+        <h2>Stawka za wyżywienie</h2>
         <div class="setting-row">
-          <label for="mealRate">Cena za jeden posiłek (PLN)</label>
+          <label for="mealRate">Cena za jeden dzień wyżywienia (PLN)</label>
           <div class="input-group">
             <input
               type="number"
@@ -67,6 +67,25 @@ import { AuthService } from '../../core/services/auth.service';
             <button class="btn primary" (click)="saveAdminPin()" [disabled]="isSaving() || !adminPin">
               Zmień PIN
             </button>
+          </div>
+        </div>
+      </section>
+
+      <section class="settings-section">
+        <h2>Panel płatności dla rodziców</h2>
+        <div class="setting-row">
+          <label for="showPaymentPanel">Pokaż rodzicom informacje o płatnościach (podsumowanie miesiąca)</label>
+          <div class="toggle-group">
+            <label class="toggle">
+              <input
+                type="checkbox"
+                id="showPaymentPanel"
+                [(ngModel)]="showPaymentPanel"
+                (change)="saveShowPaymentPanel()"
+              />
+              <span class="toggle-slider"></span>
+            </label>
+            <span class="toggle-label">{{ showPaymentPanel ? 'Widoczny' : 'Ukryty' }}</span>
           </div>
         </div>
       </section>
@@ -232,6 +251,62 @@ import { AuthService } from '../../core/services/auth.service';
       border-color: #4CAF50;
     }
 
+    .toggle-group {
+      display: flex;
+      align-items: center;
+      gap: 1rem;
+    }
+
+    .toggle {
+      position: relative;
+      display: inline-block;
+      width: 50px;
+      height: 28px;
+    }
+
+    .toggle input {
+      opacity: 0;
+      width: 0;
+      height: 0;
+    }
+
+    .toggle-slider {
+      position: absolute;
+      cursor: pointer;
+      top: 0;
+      left: 0;
+      right: 0;
+      bottom: 0;
+      background-color: #ccc;
+      transition: 0.3s;
+      border-radius: 28px;
+    }
+
+    .toggle-slider:before {
+      position: absolute;
+      content: "";
+      height: 20px;
+      width: 20px;
+      left: 4px;
+      bottom: 4px;
+      background-color: white;
+      transition: 0.3s;
+      border-radius: 50%;
+    }
+
+    .toggle input:checked + .toggle-slider {
+      background-color: #4CAF50;
+    }
+
+    .toggle input:checked + .toggle-slider:before {
+      transform: translateX(22px);
+    }
+
+    .toggle-label {
+      font-weight: 500;
+      color: #333;
+    }
+
     .btn {
       padding: 0.75rem 1.5rem;
       border: none;
@@ -356,6 +431,7 @@ export class SettingsComponent {
 
   mealRate = this.state.settings().globalMealRate;
   deadlineHour = this.state.settings().deadlineHour;
+  showPaymentPanel = this.state.settings().showPaymentPanel;
   adminPin = '';
   hours = Array.from({ length: 19 }, (_, i) => i + 5); // 5-23
   
@@ -408,6 +484,19 @@ export class SettingsComponent {
     try {
       await this.state.updateAdminPin(this.adminPin);
       this.adminPin = '';
+      this._saveSuccess.set(true);
+      setTimeout(() => this._saveSuccess.set(false), 3000);
+    } finally {
+      this._isSaving.set(false);
+    }
+  }
+
+  async saveShowPaymentPanel() {
+    this._isSaving.set(true);
+    this._saveSuccess.set(false);
+
+    try {
+      await this.state.updateShowPaymentPanel(this.showPaymentPanel);
       this._saveSuccess.set(true);
       setTimeout(() => this._saveSuccess.set(false), 3000);
     } finally {

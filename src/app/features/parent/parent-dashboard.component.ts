@@ -33,13 +33,15 @@ import { addDays } from 'date-fns';
             </div>
           </a>
 
-          <a routerLink="/parent/summary" class="action-card">
-            <span class="card-icon">📊</span>
-            <div class="card-content">
-              <span class="card-title">Podsumowanie miesiąca</span>
-              <span class="card-desc">Sprawdź kwotę do zapłaty</span>
-            </div>
-          </a>
+          @if (state.settings().showPaymentPanel) {
+            <a routerLink="/parent/summary" class="action-card">
+              <span class="card-icon">📊</span>
+              <div class="card-content">
+                <span class="card-title">Podsumowanie miesiąca</span>
+                <span class="card-desc">Sprawdź kwotę do zapłaty</span>
+              </div>
+            </a>
+          }
         </div>
 
         <section class="upcoming-section">
@@ -74,7 +76,7 @@ import { addDays } from 'date-fns';
         <section class="info-section">
           <h2>ℹ️ Informacje</h2>
           <div class="info-row">
-            <span>Stawka za posiłek</span>
+            <span>Stawka za dzień wyżywienia</span>
             <strong>{{ state.settings().globalMealRate.toFixed(2) }} PLN</strong>
           </div>
           <div class="info-row">

@@ -3,7 +3,9 @@ import { CommonModule } from '@angular/common';
 import { RouterLink } from '@angular/router';
 import { AuthService, DateService } from '../../core/services';
 import { AppState } from '../../state/app.state';
-import { addDays } from 'date-fns';
+import { addDays, startOfMonth, endOfMonth, eachDayOfInterval, getDay } from 'date-fns';
+
+type ViewMode = 'weekly' | 'monthly';
 
 @Component({
   selector: 'app-parent-cancellation',
@@ -20,6 +22,31 @@ import { addDays } from 'date-fns';
       @if (state.isLoading()) {
         <div class="loading">Ładowanie...</div>
       } @else {
+        <div class="view-toggle">
+          <button 
+            class="toggle-view-btn" 
+            [class.active]="viewMode() === 'weekly'"
+            (click)="setViewMode('weekly')"
+          >
+            📅 Tygodniowy
+          </button>
+          <button 
+            class="toggle-view-btn" 
+            [class.active]="viewMode() === 'monthly'"
+            (click)="setViewMode('monthly')"
+          >
+            🗓️ Miesięczny
+          </button>
+        </div>
+
+        @if (viewMode() === 'monthly') {
+          <div class="month-selector">
+            <button class="nav-btn" (click)="previousMonth()" [disabled]="!canGoBack()">←</button>
+            <span class="current-month">{{ currentMonthName() }} {{ currentYear() }}</span>
+            <button class="nav-btn" (click)="nextMonth()">→</button>
+          </div>
+        }
+
         <section class="cancellation-section">
           <p class="info-text">
             Kliknij na dzień, aby odwołać lub przywrócić posiłek.
@@ -27,37 +54,73 @@ import { addDays } from 'date-fns';
             <small>Termin: do {{ state.settings().deadlineHour }}:00 dzień wcześniej</small>
           </p>
 
-          <div class="days-list">
-            @for (day of availableDays(); track day.dateStr) {
-              <div
-                class="day-card"
-                [class.cancelled]="day.isCancelled"
-                [class.disabled]="!day.canCancel"
-                (click)="toggleDay(day)"
-              >
-                <div class="day-header">
-                  <span class="day-name">{{ day.dayName }}</span>
-                  <span class="day-date">{{ day.formatted }}</span>
+          @if (viewMode() === 'weekly') {
+            <div class="days-list">
+              @for (day of availableDays(); track day.dateStr) {
+                <div
+                  class="day-card"
+                  [class.cancelled]="day.isCancelled"
+                  [class.disabled]="!day.canCancel"
+                  (click)="toggleDay(day)"
+                >
+                  <div class="day-header">
+                    <span class="day-name">{{ day.dayName }}</span>
+                    <span class="day-date">{{ day.formatted }}</span>
+                  </div>
+                  <div class="day-body">
+                    @if (day.isCancelled) {
+                      <span class="meal-status cancelled">❌ Odwołany</span>
+                    } @else {
+                      <span class="meal-status active">✅ Zamówiony</span>
+                    }
+                  </div>
+                  <div class="day-footer">
+                    @if (day.canCancel) {
+                      <button class="toggle-btn" [class.restore]="day.isCancelled">
+                        {{ day.isCancelled ? '🔄 Przywróć' : '❌ Odwołaj' }}
+                      </button>
+                    } @else {
+                      <span class="deadline-passed">⏰ Termin minął</span>
+                    }
+                  </div>
                 </div>
-                <div class="day-body">
-                  @if (day.isCancelled) {
-                    <span class="meal-status cancelled">❌ Odwołany</span>
-                  } @else {
-                    <span class="meal-status active">✅ Zamówiony</span>
+              }
+            </div>
+          } @else {
+            <div class="calendar-header">
+              @for (dayName of dayNames; track dayName) {
+                <div class="calendar-day-name">{{ dayName }}</div>
+              }
+            </div>
+            <div class="calendar-grid">
+              @for (day of monthDays(); track day.dateStr) {
+                <div 
+                  class="calendar-day" 
+                  [class.not-current-month]="!day.isCurrentMonth"
+                  [class.not-working-day]="!day.isWorkingDay"
+                  [class.cancelled]="day.isCancelled"
+                  [class.disabled]="!day.canCancel"
+                  [class.is-today]="day.isToday"
+                  (click)="day.isWorkingDay && day.isCurrentMonth ? toggleDay(day) : null"
+                >
+                  <span class="calendar-day-number">{{ day.dayNumber }}</span>
+                  @if (day.isWorkingDay && day.isCurrentMonth) {
+                    @if (day.isCancelled) {
+                      <span class="calendar-status cancelled">❌</span>
+                    } @else if (day.canCancel) {
+                      <span class="calendar-status active">✅</span>
+                    } @else {
+                      <span class="calendar-status past">✅</span>
+                    }
                   }
                 </div>
-                <div class="day-footer">
-                  @if (day.canCancel) {
-                    <button class="toggle-btn" [class.restore]="day.isCancelled">
-                      {{ day.isCancelled ? '🔄 Przywróć' : '❌ Odwołaj' }}
-                    </button>
-                  } @else {
-                    <span class="deadline-passed">⏰ Termin minął</span>
-                  }
-                </div>
-              </div>
-            }
-          </div>
+              }
+            </div>
+            <div class="calendar-legend">
+              <span class="legend-item"><span class="legend-dot active"></span> Zamówiony</span>
+              <span class="legend-item"><span class="legend-dot cancelled"></span> Odwołany</span>
+            </div>
+          }
         </section>
 
         @if (message()) {
@@ -240,6 +303,250 @@ import { addDays } from 'date-fns';
       background: #ffebee;
       color: #c62828;
     }
+
+    .view-toggle {
+      display: flex;
+      gap: 0.5rem;
+      margin-bottom: 1rem;
+      justify-content: center;
+    }
+
+    .toggle-view-btn {
+      padding: 0.5rem 1rem;
+      border: 2px solid #ddd;
+      border-radius: 8px;
+      background: white;
+      cursor: pointer;
+      font-size: 0.875rem;
+      transition: all 0.2s;
+    }
+
+    .toggle-view-btn:hover {
+      border-color: #4CAF50;
+    }
+
+    .toggle-view-btn.active {
+      background: #4CAF50;
+      color: white;
+      border-color: #4CAF50;
+    }
+
+    .month-selector {
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      gap: 1rem;
+      margin-bottom: 1rem;
+    }
+
+    .nav-btn {
+      width: 40px;
+      height: 40px;
+      border: none;
+      border-radius: 8px;
+      background: white;
+      font-size: 1.25rem;
+      cursor: pointer;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+    }
+
+    .nav-btn:hover:not(:disabled) {
+      background: #f5f5f5;
+    }
+
+    .nav-btn:disabled {
+      opacity: 0.5;
+      cursor: not-allowed;
+    }
+
+    .current-month {
+      font-size: 1.125rem;
+      font-weight: 600;
+      text-transform: capitalize;
+      min-width: 180px;
+      text-align: center;
+    }
+
+    .calendar-header {
+      display: grid;
+      grid-template-columns: repeat(7, 1fr);
+      gap: 2px;
+      margin-bottom: 0.5rem;
+    }
+
+    .calendar-day-name {
+      text-align: center;
+      font-weight: 600;
+      font-size: 0.75rem;
+      color: #666;
+      padding: 0.5rem 0;
+    }
+
+    .calendar-grid {
+      display: grid;
+      grid-template-columns: repeat(7, 1fr);
+      gap: 2px;
+    }
+
+    .calendar-day {
+      aspect-ratio: 1;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      background: white;
+      border-radius: 8px;
+      cursor: pointer;
+      transition: all 0.2s;
+      border: 2px solid transparent;
+      position: relative;
+      min-height: 50px;
+    }
+
+    .calendar-day:not(.not-working-day):not(.not-current-month):not(.disabled):hover {
+      border-color: #4CAF50;
+      background: #fafafa;
+    }
+
+    .calendar-day.not-current-month {
+      opacity: 0.3;
+      cursor: default;
+    }
+
+    .calendar-day.not-working-day {
+      background: #f5f5f5;
+      cursor: default;
+    }
+
+    .calendar-day.cancelled {
+      background: #fff8f8;
+      border-color: #ffcdd2;
+    }
+
+    .calendar-day.disabled:not(.not-current-month):not(.not-working-day) {
+      opacity: 0.7;
+    }
+
+    .calendar-day.is-today {
+      border-color: #2196F3;
+    }
+
+    .calendar-day-number {
+      font-weight: 600;
+      font-size: 0.875rem;
+    }
+
+    .calendar-status {
+      font-size: 0.75rem;
+      margin-top: 2px;
+    }
+
+    .calendar-status.past {
+      opacity: 0.5;
+    }
+
+    .calendar-legend {
+      display: flex;
+      justify-content: center;
+      gap: 1.5rem;
+      margin-top: 1rem;
+      padding-top: 1rem;
+      border-top: 1px solid #eee;
+    }
+
+    .legend-item {
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+      font-size: 0.875rem;
+      color: #666;
+    }
+
+    .legend-dot {
+      width: 12px;
+      height: 12px;
+      border-radius: 50%;
+    }
+
+    .legend-dot.active {
+      background: #4CAF50;
+    }
+
+    .legend-dot.cancelled {
+      background: #f44336;
+    }
+
+    @media (max-width: 480px) {
+      .cancellation-section {
+        padding: 1rem;
+      }
+
+      .calendar-header {
+        gap: 1px;
+      }
+
+      .calendar-day-name {
+        font-size: 0.625rem;
+        padding: 0.25rem 0;
+      }
+
+      .calendar-grid {
+        gap: 1px;
+      }
+
+      .calendar-day {
+        min-height: 40px;
+        border-radius: 4px;
+        border-width: 1px;
+        padding: 2px;
+      }
+
+      .calendar-day-number {
+        font-size: 0.75rem;
+      }
+
+      .calendar-status {
+        font-size: 0.625rem;
+        margin-top: 0;
+      }
+
+      .month-selector {
+        gap: 0.5rem;
+      }
+
+      .nav-btn {
+        width: 32px;
+        height: 32px;
+        font-size: 1rem;
+      }
+
+      .current-month {
+        font-size: 0.95rem;
+        min-width: 140px;
+      }
+
+      .view-toggle {
+        gap: 0.25rem;
+      }
+
+      .toggle-view-btn {
+        padding: 0.375rem 0.75rem;
+        font-size: 0.75rem;
+      }
+
+      .calendar-legend {
+        gap: 1rem;
+      }
+
+      .legend-item {
+        font-size: 0.75rem;
+      }
+
+      .legend-dot {
+        width: 10px;
+        height: 10px;
+      }
+    }
   `]
 })
 export class ParentCancellationComponent implements OnInit {
@@ -249,6 +556,55 @@ export class ParentCancellationComponent implements OnInit {
 
   message = signal('');
   messageType = signal<'success' | 'error'>('success');
+  viewMode = signal<ViewMode>('weekly');
+  currentYear = signal(new Date().getFullYear());
+  currentMonth = signal(new Date().getMonth());
+
+  dayNames = ['Pon', 'Wt', 'Śr', 'Czw', 'Pt', 'Sob', 'Ndz'];
+
+  currentMonthName = computed(() =>
+    this.dateService.getMonthName(this.currentMonth())
+  );
+
+  canGoBack = computed(() => {
+    const year = this.currentYear();
+    const month = this.currentMonth();
+    // Nie pozwalamy cofać się przed styczeń 2026
+    return !(year === 2026 && month === 0);
+  });
+
+  monthDays = computed(() => {
+    const year = this.currentYear();
+    const month = this.currentMonth();
+    const settings = this.state.settings();
+    const childId = this.auth.getChildId();
+    if (!childId) return [];
+
+    const calendarDays = this.dateService.getCalendarGrid(year, month);
+    const today = new Date();
+
+    return calendarDays.map(date => {
+      const dateStr = this.dateService.toISODate(date);
+      const isCurrentMonth = this.dateService.isInMonth(date, year, month);
+      const isWorkingDay = this.dateService.isWorkingDay(date);
+      const isCancelled = this.state.isChildCancelledForDate(childId, dateStr);
+      const canCancel = this.dateService.canCancelForDate(date, settings.deadlineHour);
+      const isToday = this.dateService.isToday(date);
+
+      return {
+        date,
+        dateStr,
+        dayNumber: date.getDate(),
+        isCurrentMonth,
+        isWorkingDay,
+        isCancelled,
+        canCancel: isCurrentMonth && isWorkingDay && canCancel,
+        isToday,
+        dayName: this.dateService.formatPolish(date, 'EEEE'),
+        formatted: this.dateService.formatPolish(date, 'd MMMM')
+      };
+    });
+  });
 
   availableDays = computed(() => {
     const days = [];
@@ -283,6 +639,30 @@ export class ParentCancellationComponent implements OnInit {
 
   async ngOnInit() {
     await this.state.initialize();
+  }
+
+  setViewMode(mode: ViewMode) {
+    this.viewMode.set(mode);
+  }
+
+  previousMonth() {
+    if (!this.canGoBack()) return;
+    
+    const { year, month } = this.dateService.getPreviousMonth(
+      this.currentYear(),
+      this.currentMonth()
+    );
+    this.currentYear.set(year);
+    this.currentMonth.set(month);
+  }
+
+  nextMonth() {
+    const { year, month } = this.dateService.getNextMonth(
+      this.currentYear(),
+      this.currentMonth()
+    );
+    this.currentYear.set(year);
+    this.currentMonth.set(month);
   }
 
   async toggleDay(day: { dateStr: string; canCancel: boolean; isCancelled: boolean }) {

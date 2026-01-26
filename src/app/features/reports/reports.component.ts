@@ -16,7 +16,7 @@ import { DateService, MonthlyReport } from '../../core/services';
       </header>
 
       <section class="month-selector">
-        <button class="nav-btn" (click)="previousMonth()">← Poprzedni</button>
+        <button class="nav-btn" (click)="previousMonth()" [disabled]="!canGoBack()">← Poprzedni</button>
         <h2 class="current-month">{{ monthName() }} {{ year() }}</h2>
         <button class="nav-btn" (click)="nextMonth()">Następny →</button>
       </section>
@@ -33,7 +33,7 @@ import { DateService, MonthlyReport } from '../../core/services';
             </div>
             <div class="summary-card">
               <div class="value">{{ report()!.mealRate.toFixed(2) }} zł</div>
-              <div class="label">Stawka za obiad</div>
+              <div class="label">Stawka dzienna</div>
             </div>
             <div class="summary-card highlight">
               <div class="value">{{ report()!.totalAmount.toFixed(2) }} zł</div>
@@ -169,8 +169,13 @@ import { DateService, MonthlyReport } from '../../core/services';
       transition: background 0.2s;
     }
 
-    .nav-btn:hover {
+    .nav-btn:hover:not(:disabled) {
       background: #e0e0e0;
+    }
+
+    .nav-btn:disabled {
+      opacity: 0.5;
+      cursor: not-allowed;
     }
 
     .loading {
@@ -401,6 +406,13 @@ export class ReportsComponent {
 
   monthName = computed(() => this.dateService.getMonthName(this._month()));
 
+  canGoBack = computed(() => {
+    const year = this._year();
+    const month = this._month();
+    // Nie pozwalamy cofać się przed styczeń 2026
+    return !(year === 2026 && month === 0);
+  });
+
   dailySummary = computed(() => {
     const report = this._report();
     if (!report) return [];
@@ -440,6 +452,8 @@ export class ReportsComponent {
   }
 
   async previousMonth() {
+    if (!this.canGoBack()) return;
+    
     const { year, month } = this.dateService.getPreviousMonth(this._year(), this._month());
     this._year.set(year);
     this._month.set(month);

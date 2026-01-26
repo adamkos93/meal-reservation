@@ -24,7 +24,7 @@ import { AuthService } from '../../core/services/auth.service';
       } @else {
         <div class="calendar-container">
           <div class="calendar-header">
-            <button class="nav-btn" (click)="state.previousMonth()">
+            <button class="nav-btn" (click)="state.previousMonth()" [disabled]="!state.canGoBack()">
               ← Poprzedni
             </button>
             <h2 class="current-month">
@@ -192,8 +192,13 @@ import { AuthService } from '../../core/services/auth.service';
       transition: background 0.2s;
     }
 
-    .nav-btn:hover {
+    .nav-btn:hover:not(:disabled) {
       background: #e0e0e0;
+    }
+
+    .nav-btn:disabled {
+      opacity: 0.5;
+      cursor: not-allowed;
     }
 
     .calendar-grid {
@@ -218,8 +223,9 @@ import { AuthService } from '../../core/services/auth.service';
       justify-content: center;
       border-radius: 8px;
       font-size: 0.875rem;
-      position: relative;
       background: #f8f9fa;
+      position: relative;
+      overflow: hidden;
     }
 
     .calendar-day.clickable {
@@ -259,26 +265,55 @@ import { AuthService } from '../../core/services/auth.service';
     }
 
     .day-number {
-      font-weight: 500;
+      font-weight: 600;
+      font-size: 1rem;
+      line-height: 1;
     }
 
     .day-info {
       position: absolute;
-      bottom: 2px;
+      bottom: 4px;
+      left: 0;
+      right: 0;
       display: flex;
-      gap: 2px;
+      justify-content: center;
+      gap: 3px;
+      line-height: 1;
     }
 
     .cancelled-badge {
       background: #f44336;
       color: white;
-      font-size: 0.625rem;
-      padding: 1px 4px;
-      border-radius: 4px;
+      font-size: 0.7rem;
+      padding: 2px 4px;
+      border-radius: 3px;
+      line-height: 1;
     }
 
     .deadline-passed {
-      font-size: 0.625rem;
+      font-size: 0.8rem;
+      line-height: 1;
+    }
+
+    @media (min-width: 900px) {
+      .day-number {
+        font-size: 1.125rem;
+      }
+
+      .day-info {
+        bottom: 6px;
+        gap: 4px;
+      }
+
+      .cancelled-badge {
+        font-size: 0.85rem;
+        padding: 3px 6px;
+        border-radius: 4px;
+      }
+
+      .deadline-passed {
+        font-size: 1rem;
+      }
     }
 
     .legend {
@@ -314,6 +349,66 @@ import { AuthService } from '../../core/services/auth.service';
 
     .legend-icon {
       font-size: 1rem;
+    }
+
+    @media (max-width: 480px) {
+      .calendar-container {
+        padding: 1rem;
+      }
+
+      .calendar-grid {
+        gap: 2px;
+      }
+
+      .calendar-day {
+        border-radius: 4px;
+        font-size: 0.7rem;
+        padding-top: 4px;
+      }
+
+      .day-number {
+        font-size: 0.85rem;
+      }
+
+      .day-info {
+        bottom: 2px;
+        gap: 2px;
+      }
+
+      .cancelled-badge {
+        font-size: 0.55rem;
+        padding: 1px 3px;
+        border-radius: 2px;
+      }
+
+      .deadline-passed {
+        font-size: 0.65rem;
+      }
+
+      .day-header {
+        font-size: 0.625rem;
+        padding: 0.25rem;
+      }
+
+      .nav-btn {
+        padding: 0.375rem 0.5rem;
+        font-size: 0.75rem;
+      }
+
+      .current-month {
+        font-size: 1rem;
+      }
+
+      .legend {
+        flex-wrap: wrap;
+        gap: 0.75rem;
+        font-size: 0.625rem;
+      }
+
+      .legend-color {
+        width: 12px;
+        height: 12px;
+      }
     }
 
     .quick-stats {

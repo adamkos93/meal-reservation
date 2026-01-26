@@ -164,7 +164,16 @@ export class AppState {
     this._currentMonth.set(month);
   }
 
+  canGoBack(): boolean {
+    const year = this._currentYear();
+    const month = this._currentMonth();
+    // Nie pozwalamy cofać się przed styczeń 2026
+    return !(year === 2026 && month === 0);
+  }
+
   previousMonth(): void {
+    if (!this.canGoBack()) return;
+    
     const { year, month } = this.dateService.getPreviousMonth(
       this._currentYear(),
       this._currentMonth()
@@ -203,6 +212,11 @@ export class AppState {
 
   async updateAdminPin(pin: string): Promise<void> {
     const updated = await this.mealService.updateSettings({ adminPin: pin });
+    this._settings.set(updated);
+  }
+
+  async updateShowPaymentPanel(show: boolean): Promise<void> {
+    const updated = await this.mealService.updateSettings({ showPaymentPanel: show });
     this._settings.set(updated);
   }
 
