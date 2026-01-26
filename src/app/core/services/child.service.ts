@@ -27,7 +27,7 @@ export class ChildService {
     const child: Child = {
       id: crypto.randomUUID(),
       nickname: dto.nickname.trim(),
-      identifier: dto.identifier?.trim() || undefined,
+      identifier: dto.identifier?.trim() || null,
       accessCode: dto.accessCode.trim(),
       isActive: true,
       createdAt: new Date().toISOString()
@@ -43,7 +43,7 @@ export class ChildService {
     const updated: Child = {
       ...child,
       nickname: dto.nickname?.trim() || child.nickname,
-      identifier: dto.identifier?.trim() || child.identifier,
+      identifier: dto.identifier?.trim() || child.identifier || null,
       accessCode: dto.accessCode?.trim() || child.accessCode
     };
     await this.storage.saveChild(updated);

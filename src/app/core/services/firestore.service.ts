@@ -47,14 +47,17 @@ export class FirestoreService {
       this.app = initializeApp(environment.firebase);
       this.db = getFirestore(this.app);
       
-      // Initialize default settings if not exists
-      const settings = await this.getSettings();
-      if (!settings) {
-        await this.saveSettings(DEFAULT_SETTINGS);
-      }
-      
+      // Mark as initialized BEFORE checking settings to avoid recursion
       this.initialized = true;
+      
+      // Initialize default settings if not exists
+      const docRef = doc(this.db, 'settings', 'app-settings');
+      const docSnap = await getDoc(docRef);
+      if (!docSnap.exists()) {
+        await setDoc(docRef, DEFAULT_SETTINGS);
+      }
     } catch (error) {
+      this.initialized = false;
       console.error('Firebase initialization error:', error);
       throw error;
     }

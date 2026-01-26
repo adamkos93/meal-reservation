@@ -433,7 +433,8 @@ export class ChildrenComponent {
       this.newAccessCode = '';
       this.error = '';
     } catch (e) {
-      this.error = 'Nie udało się dodać dziecka.';
+      console.error('Error adding child:', e);
+      this.error = 'Nie udało się dodać dziecka. Sprawdź konsolę.';
     }
   }
 

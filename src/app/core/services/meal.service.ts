@@ -15,7 +15,7 @@ export interface DailySummary {
 export interface ChildMonthlySummary {
   childId: string;
   childNickname: string;
-  childIdentifier?: string;
+  childIdentifier: string | null;
   workingDays: number;
   cancelledDays: number;
   mealsToPay: number;
