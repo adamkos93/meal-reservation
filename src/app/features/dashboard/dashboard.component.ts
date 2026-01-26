@@ -1,0 +1,368 @@
+import { Component, inject, OnInit } from '@angular/core';
+import { CommonModule } from '@angular/common';
+import { RouterLink } from '@angular/router';
+import { AppState, CalendarDay } from '../../state/app.state';
+import { DateService } from '../../core/services';
+
+@Component({
+  selector: 'app-dashboard',
+  standalone: true,
+  imports: [CommonModule, RouterLink],
+  template: `
+    <div class="dashboard">
+      <header class="dashboard-header">
+        <h1>🍽️ Odwoływanie Posiłków</h1>
+        <p class="subtitle">Zarządzaj obiadami dla dzieci</p>
+      </header>
+
+      @if (state.isLoading()) {
+        <div class="loading">Ładowanie...</div>
+      } @else {
+        <div class="calendar-container">
+          <div class="calendar-header">
+            <button class="nav-btn" (click)="state.previousMonth()">
+              ← Poprzedni
+            </button>
+            <h2 class="current-month">
+              {{ state.currentMonthName() }} {{ state.currentYear() }}
+            </h2>
+            <button class="nav-btn" (click)="state.nextMonth()">
+              Następny →
+            </button>
+          </div>
+
+          <div class="calendar-grid">
+            <div class="day-header" *ngFor="let day of dayNames">{{ day }}</div>
+            
+            @for (day of state.calendarDays(); track day.dateStr) {
+              <div 
+                class="calendar-day"
+                [class.other-month]="!day.isCurrentMonth"
+                [class.today]="day.isToday"
+                [class.weekend]="!day.isWorkingDay"
+                [class.past]="day.isPast"
+                [class.has-cancellations]="day.cancellations.length > 0"
+                [class.clickable]="day.isCurrentMonth && day.isWorkingDay && day.canCancel"
+                (click)="onDayClick(day)"
+              >
+                <span class="day-number">{{ day.date.getDate() }}</span>
+                @if (day.isCurrentMonth && day.isWorkingDay) {
+                  <div class="day-info">
+                    @if (day.cancellations.length > 0) {
+                      <span class="cancelled-badge">
+                        -{{ day.cancellations.length }}
+                      </span>
+                    }
+                    @if (!day.canCancel && !day.isPast) {
+                      <span class="deadline-passed">⏰</span>
+                    }
+                  </div>
+                }
+              </div>
+            }
+          </div>
+
+          <div class="legend">
+            <div class="legend-item">
+              <span class="legend-color today"></span>
+              <span>Dzisiaj</span>
+            </div>
+            <div class="legend-item">
+              <span class="legend-color cancelled"></span>
+              <span>Są odwołania</span>
+            </div>
+            <div class="legend-item">
+              <span class="legend-icon">⏰</span>
+              <span>Deadline minął (17:00)</span>
+            </div>
+          </div>
+        </div>
+
+        <div class="quick-stats">
+          <div class="stat-card">
+            <div class="stat-value">{{ state.activeChildren().length }}</div>
+            <div class="stat-label">Aktywnych dzieci</div>
+          </div>
+          <div class="stat-card">
+            <div class="stat-value">{{ state.workingDaysInCurrentMonth().length }}</div>
+            <div class="stat-label">Dni roboczych</div>
+          </div>
+        </div>
+
+        <nav class="quick-links">
+          <a routerLink="/cancellation" class="quick-link primary">
+            📝 Odwołaj posiłek
+          </a>
+          <a routerLink="/children" class="quick-link">
+            👶 Zarządzaj dziećmi
+          </a>
+          <a routerLink="/reports" class="quick-link">
+            📊 Raporty
+          </a>
+          <a routerLink="/settings" class="quick-link">
+            ⚙️ Ustawienia
+          </a>
+        </nav>
+      }
+    </div>
+  `,
+  styles: [`
+    .dashboard {
+      max-width: 800px;
+      margin: 0 auto;
+      padding: 1rem;
+    }
+
+    .dashboard-header {
+      text-align: center;
+      margin-bottom: 2rem;
+    }
+
+    .dashboard-header h1 {
+      font-size: 1.75rem;
+      margin: 0;
+      color: #1a1a2e;
+    }
+
+    .subtitle {
+      color: #666;
+      margin: 0.5rem 0 0;
+    }
+
+    .loading {
+      text-align: center;
+      padding: 3rem;
+      color: #666;
+    }
+
+    .calendar-container {
+      background: white;
+      border-radius: 12px;
+      padding: 1.5rem;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+      margin-bottom: 1.5rem;
+    }
+
+    .calendar-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 1rem;
+    }
+
+    .current-month {
+      font-size: 1.25rem;
+      margin: 0;
+      text-transform: capitalize;
+    }
+
+    .nav-btn {
+      background: #f0f0f0;
+      border: none;
+      padding: 0.5rem 1rem;
+      border-radius: 6px;
+      cursor: pointer;
+      font-size: 0.875rem;
+      transition: background 0.2s;
+    }
+
+    .nav-btn:hover {
+      background: #e0e0e0;
+    }
+
+    .calendar-grid {
+      display: grid;
+      grid-template-columns: repeat(7, 1fr);
+      gap: 4px;
+    }
+
+    .day-header {
+      text-align: center;
+      font-weight: 600;
+      font-size: 0.75rem;
+      color: #666;
+      padding: 0.5rem;
+    }
+
+    .calendar-day {
+      aspect-ratio: 1;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      border-radius: 8px;
+      font-size: 0.875rem;
+      position: relative;
+      background: #f8f9fa;
+    }
+
+    .calendar-day.clickable {
+      cursor: pointer;
+    }
+
+    .calendar-day.clickable:hover {
+      background: #e8f4ff;
+    }
+
+    .calendar-day.other-month {
+      background: transparent;
+      color: #ccc;
+    }
+
+    .calendar-day.today {
+      background: #4CAF50;
+      color: white;
+      font-weight: 600;
+    }
+
+    .calendar-day.weekend {
+      background: #f0f0f0;
+      color: #999;
+    }
+
+    .calendar-day.past:not(.today) {
+      opacity: 0.6;
+    }
+
+    .calendar-day.has-cancellations {
+      background: #ffebee;
+    }
+
+    .calendar-day.has-cancellations.today {
+      background: #4CAF50;
+    }
+
+    .day-number {
+      font-weight: 500;
+    }
+
+    .day-info {
+      position: absolute;
+      bottom: 2px;
+      display: flex;
+      gap: 2px;
+    }
+
+    .cancelled-badge {
+      background: #f44336;
+      color: white;
+      font-size: 0.625rem;
+      padding: 1px 4px;
+      border-radius: 4px;
+    }
+
+    .deadline-passed {
+      font-size: 0.625rem;
+    }
+
+    .legend {
+      display: flex;
+      gap: 1.5rem;
+      margin-top: 1rem;
+      padding-top: 1rem;
+      border-top: 1px solid #eee;
+      font-size: 0.75rem;
+      color: #666;
+    }
+
+    .legend-item {
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+    }
+
+    .legend-color {
+      width: 16px;
+      height: 16px;
+      border-radius: 4px;
+    }
+
+    .legend-color.today {
+      background: #4CAF50;
+    }
+
+    .legend-color.cancelled {
+      background: #ffebee;
+      border: 1px solid #f44336;
+    }
+
+    .legend-icon {
+      font-size: 1rem;
+    }
+
+    .quick-stats {
+      display: grid;
+      grid-template-columns: repeat(2, 1fr);
+      gap: 1rem;
+      margin-bottom: 1.5rem;
+    }
+
+    .stat-card {
+      background: white;
+      border-radius: 12px;
+      padding: 1.25rem;
+      text-align: center;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+    }
+
+    .stat-value {
+      font-size: 2rem;
+      font-weight: 700;
+      color: #1a1a2e;
+    }
+
+    .stat-label {
+      font-size: 0.875rem;
+      color: #666;
+    }
+
+    .quick-links {
+      display: grid;
+      grid-template-columns: repeat(2, 1fr);
+      gap: 0.75rem;
+    }
+
+    .quick-link {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 0.5rem;
+      background: white;
+      border-radius: 12px;
+      padding: 1rem;
+      text-decoration: none;
+      color: #1a1a2e;
+      font-weight: 500;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+      transition: transform 0.2s, box-shadow 0.2s;
+    }
+
+    .quick-link:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+    }
+
+    .quick-link.primary {
+      background: #4CAF50;
+      color: white;
+      grid-column: span 2;
+    }
+  `]
+})
+export class DashboardComponent implements OnInit {
+  state = inject(AppState);
+  private dateService = inject(DateService);
+
+  dayNames = this.dateService.getShortDayNames();
+
+  async ngOnInit() {
+    await this.state.initialize();
+  }
+
+  onDayClick(day: CalendarDay) {
+    if (day.isCurrentMonth && day.isWorkingDay && day.canCancel) {
+      this.state.selectDate(day.dateStr);
+      // Navigate to cancellation page or open modal
+    }
+  }
+}
