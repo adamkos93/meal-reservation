@@ -3,6 +3,7 @@ import {
   format,
   parse,
   addDays,
+  subDays,
   startOfMonth,
   endOfMonth,
   eachDayOfInterval,
@@ -19,6 +20,7 @@ import {
   isToday
 } from 'date-fns';
 import { pl } from 'date-fns/locale';
+import { Holiday } from '../../shared/models';
 
 @Injectable({
   providedIn: 'root'
@@ -41,16 +43,72 @@ export class DateService {
     return parse(dateStr, 'yyyy-MM-dd', new Date());
   }
 
+  // Check if a date is a holiday
+  isHoliday(date: Date | string, holidays: Holiday[]): boolean {
+    const dateStr = typeof date === 'string' ? date : this.toISODate(date);
+    return holidays.some(h => h.date === dateStr);
+  }
+
+  // Get holiday name for a date (if it's a holiday)
+  getHolidayName(date: Date | string, holidays: Holiday[]): string | null {
+    const dateStr = typeof date === 'string' ? date : this.toISODate(date);
+    const holiday = holidays.find(h => h.date === dateStr);
+    return holiday ? holiday.name : null;
+  }
+
+  // Check if a date is a working day (Mon-Fri and not a holiday)
+  isWorkingDayWithHolidays(date: Date, holidays: Holiday[] = []): boolean {
+    if (!this.isWorkingDay(date)) return false;
+    return !this.isHoliday(date, holidays);
+  }
+
+  // Get previous working day (considering weekends and holidays)
+  getPreviousWorkingDay(date: Date, holidays: Holiday[] = []): Date {
+    let current = subDays(date, 1);
+    while (!this.isWorkingDayWithHolidays(current, holidays)) {
+      current = subDays(current, 1);
+    }
+    return current;
+  }
+
+  // Get next working day (considering weekends and holidays)
+  getNextWorkingDay(date: Date, holidays: Holiday[] = []): Date {
+    let current = addDays(date, 1);
+    while (!this.isWorkingDayWithHolidays(current, holidays)) {
+      current = addDays(current, 1);
+    }
+    return current;
+  }
+
+  // Check if date is within child's attendance range
+  isDateInAttendanceRange(date: Date | string, startDate?: string | null, endDate?: string | null): boolean {
+    const target = typeof date === 'string' ? this.parseISODate(date) : date;
+    
+    if (startDate) {
+      const start = this.parseISODate(startDate);
+      if (isBefore(target, start)) return false;
+    }
+    
+    if (endDate) {
+      const end = this.parseISODate(endDate);
+      if (isAfter(target, end)) return false;
+    }
+    
+    return true;
+  }
+
   // Check if cancellation is allowed for a given date
   // Deadline is 17:00 (5 PM) the day before
-  canCancelForDate(targetDate: Date | string, deadlineHour: number = 17): boolean {
+  canCancelForDate(targetDate: Date | string, deadlineHour: number = 17, holidays: Holiday[] = []): boolean {
     const target = typeof targetDate === 'string' ? this.parseISODate(targetDate) : targetDate;
     const now = new Date();
     
-    // Calculate deadline: day before target date at deadlineHour:00
+    // Calculate deadline: previous working day before target date at deadlineHour:00
+    // This means for Monday, the deadline is Friday 17:00
+    const previousWorkingDay = this.getPreviousWorkingDay(target, holidays);
     const deadline = setSeconds(
       setMinutes(
-        setHours(addDays(target, -1), deadlineHour),
+        setHours(previousWorkingDay, deadlineHour),
         0
       ),
       0

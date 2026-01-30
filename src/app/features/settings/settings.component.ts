@@ -1,9 +1,11 @@
-import { Component, inject, signal, ElementRef, ViewChild, OnInit } from '@angular/core';
+import { Component, inject, signal, computed, ElementRef, ViewChild, OnInit } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { RouterLink } from '@angular/router';
 import { AppState } from '../../state/app.state';
 import { AuthService } from '../../core/services/auth.service';
+import { DateService } from '../../core/services/date.service';
+import { Holiday } from '../../shared/models';
 
 @Component({
   selector: 'app-settings',
@@ -93,6 +95,50 @@ import { AuthService } from '../../core/services/auth.service';
       @if (saveSuccess()) {
         <div class="toast success">✓ Zapisano pomyślnie</div>
       }
+
+      <section class="settings-section">
+        <h2>🎉 Dni wolne (święta)</h2>
+        <p class="section-description">
+          Dodaj dni wolne od pracy (święta, dni wolne). W te dni posiłki nie będą zamawiane.
+          Deadline odwołania dla dnia po święcie będzie przesunięty na ostatni dzień roboczy.
+        </p>
+        <div class="holiday-form">
+          <input
+            type="date"
+            [(ngModel)]="newHolidayDate"
+            class="holiday-input"
+            placeholder="Data"
+          />
+          <input
+            type="text"
+            [(ngModel)]="newHolidayName"
+            class="holiday-name-input"
+            placeholder="Nazwa (np. Boże Narodzenie)"
+          />
+          <button 
+            class="btn primary" 
+            (click)="addHoliday()" 
+            [disabled]="!newHolidayDate || !newHolidayName"
+          >
+            ➕ Dodaj
+          </button>
+        </div>
+        @if (holidays().length > 0) {
+          <ul class="holidays-list">
+            @for (holiday of holidays(); track holiday.date) {
+              <li class="holiday-item">
+                <div class="holiday-info">
+                  <span class="holiday-date">{{ formatHolidayDate(holiday.date) }}</span>
+                  <span class="holiday-name">{{ holiday.name }}</span>
+                </div>
+                <button class="btn small danger" (click)="removeHoliday(holiday.date)">❌</button>
+              </li>
+            }
+          </ul>
+        } @else {
+          <p class="empty-message">Brak dodanych dni wolnych</p>
+        }
+      </section>
 
       <section class="settings-section">
         <h2>Kopia zapasowa danych</h2>
@@ -220,6 +266,76 @@ import { AuthService } from '../../core/services/auth.service';
       color: #666;
       font-size: 0.875rem;
       margin-bottom: 1rem;
+    }
+
+    .holiday-form {
+      display: flex;
+      gap: 0.5rem;
+      margin-bottom: 1rem;
+      flex-wrap: wrap;
+    }
+
+    .holiday-input {
+      padding: 0.75rem;
+      border: 1px solid #ddd;
+      border-radius: 8px;
+      font-size: 1rem;
+      min-width: 150px;
+    }
+
+    .holiday-name-input {
+      flex: 1;
+      padding: 0.75rem;
+      border: 1px solid #ddd;
+      border-radius: 8px;
+      font-size: 1rem;
+      min-width: 200px;
+    }
+
+    .holidays-list {
+      list-style: none;
+      padding: 0;
+      margin: 0;
+      max-height: 300px;
+      overflow-y: auto;
+    }
+
+    .holiday-item {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 0.75rem;
+      border-bottom: 1px solid #eee;
+      gap: 1rem;
+    }
+
+    .holiday-item:last-child {
+      border-bottom: none;
+    }
+
+    .holiday-info {
+      display: flex;
+      flex-direction: column;
+      gap: 0.25rem;
+    }
+
+    .holiday-date {
+      text-transform: capitalize;
+      font-size: 0.875rem;
+      color: #666;
+    }
+
+    .holiday-name {
+      font-weight: 500;
+      font-size: 1rem;
+      color: #333;
+    }
+
+    .empty-message {
+      color: #999;
+      font-style: italic;
+      text-align: center;
+      padding: 1rem;
     }
 
     .setting-row {
@@ -428,11 +544,14 @@ export class SettingsComponent {
   @ViewChild('fileInput') fileInput!: ElementRef<HTMLInputElement>;
 
   state = inject(AppState);
+  private dateService = inject(DateService);
 
   mealRate = this.state.settings().globalMealRate;
   deadlineHour = this.state.settings().deadlineHour;
   showPaymentPanel = this.state.settings().showPaymentPanel;
   adminPin = '';
+  newHolidayDate = '';
+  newHolidayName = '';
   hours = Array.from({ length: 19 }, (_, i) => i + 5); // 5-23
   
   private _isSaving = signal(false);
@@ -446,6 +565,29 @@ export class SettingsComponent {
   importError = this._importError.asReadonly();
   importSuccess = this._importSuccess.asReadonly();
   showClearConfirm = this._showClearConfirm.asReadonly();
+
+  holidays = computed(() => {
+    const settings = this.state.settings();
+    return (settings.holidays || []).slice().sort((a, b) => a.date.localeCompare(b.date));
+  });
+
+  formatHolidayDate(dateStr: string): string {
+    const date = this.dateService.parseISODate(dateStr);
+    return this.dateService.formatPolish(date, 'EEEE, d MMMM yyyy');
+  }
+
+  async addHoliday() {
+    if (!this.newHolidayDate || !this.newHolidayName) return;
+    await this.state.addHoliday(this.newHolidayDate, this.newHolidayName.trim());
+    this.newHolidayDate = '';
+    this.newHolidayName = '';
+    this._saveSuccess.set(true);
+    setTimeout(() => this._saveSuccess.set(false), 3000);
+  }
+
+  async removeHoliday(date: string) {
+    await this.state.removeHoliday(date);
+  }
 
   async saveMealRate() {
     if (this.mealRate < 0) return;

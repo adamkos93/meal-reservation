@@ -30,7 +30,9 @@ export class ChildService {
       identifier: dto.identifier?.trim() || null,
       accessCode: dto.accessCode.trim(),
       isActive: true,
-      createdAt: new Date().toISOString()
+      createdAt: new Date().toISOString(),
+      startDate: dto.startDate || null,
+      endDate: dto.endDate || null
     };
     await this.storage.saveChild(child);
     return child;
@@ -44,7 +46,9 @@ export class ChildService {
       ...child,
       nickname: dto.nickname?.trim() || child.nickname,
       identifier: dto.identifier?.trim() || child.identifier || null,
-      accessCode: dto.accessCode?.trim() || child.accessCode
+      accessCode: dto.accessCode?.trim() || child.accessCode,
+      startDate: dto.startDate !== undefined ? (dto.startDate || null) : child.startDate,
+      endDate: dto.endDate !== undefined ? (dto.endDate || null) : child.endDate
     };
     await this.storage.saveChild(updated);
     return updated;

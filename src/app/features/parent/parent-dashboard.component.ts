@@ -28,7 +28,7 @@ import { addDays } from 'date-fns';
           <a routerLink="/parent/cancel" class="action-card primary">
             <span class="card-icon">📝</span>
             <div class="card-content">
-              <span class="card-title">Odwołaj posiłek</span>
+              <span class="card-title">Odwołaj posiłki na dany dzień</span>
               <span class="card-desc">Zgłoś nieobecność na obiad</span>
             </div>
           </a>
@@ -283,18 +283,26 @@ export class ParentDashboardComponent implements OnInit {
     const childId = this.auth.getChildId();
     if (!childId) return [];
 
+    const child = this.state.children().find(c => c.id === childId);
     const days = [];
     const today = new Date();
     const settings = this.state.settings();
+    const holidays = settings.holidays || [];
 
     for (let i = 0; i <= 14; i++) {
       const date = addDays(today, i);
 
       if (!this.dateService.isWorkingDay(date)) continue;
 
+      // Skip holidays
+      if (this.dateService.isHoliday(date, holidays)) continue;
+
+      // Skip days outside child's attendance range
+      if (!this.dateService.isDateInAttendanceRange(date, child?.startDate, child?.endDate)) continue;
+
       const dateStr = this.dateService.toISODate(date);
       const isCancelled = this.state.isChildCancelledForDate(childId, dateStr);
-      const canCancel = this.dateService.canCancelForDate(date, settings.deadlineHour);
+      const canCancel = this.dateService.canCancelForDate(date, settings.deadlineHour, holidays);
 
       days.push({
         date,

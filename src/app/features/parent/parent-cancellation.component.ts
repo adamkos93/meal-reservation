@@ -15,7 +15,7 @@ type ViewMode = 'weekly' | 'monthly';
     <div class="parent-page">
       <header class="page-header">
         <a routerLink="/parent" class="back-link">← Powrót</a>
-        <h1>📝 Odwołaj Posiłek</h1>
+        <h1>📝 Odwołaj posiłki na dany dzień</h1>
         <p class="child-name">Dziecko: <strong>{{ auth.getChildNickname() }}</strong></p>
       </header>
 
@@ -49,41 +49,60 @@ type ViewMode = 'weekly' | 'monthly';
 
         <section class="cancellation-section">
           <p class="info-text">
-            Kliknij na dzień, aby odwołać lub przywrócić posiłek.
+            Kliknij aby odwołać lub przywrócić posiłki na dany dzień.
             <br>
-            <small>Termin: do {{ state.settings().deadlineHour }}:00 dzień wcześniej</small>
+            <small>Termin: do {{ state.settings().deadlineHour }}:00 w ostatni dzień roboczy przed kolejnym dniem, kiedy dziecko ma zaplanowaną obecność w żłobku</small>
+            <br>
+            <small class="weekend-info">⚠️ Posiłki na poniedziałek należy odwołać do piątku {{ state.settings().deadlineHour }}:00</small>
           </p>
 
           @if (viewMode() === 'weekly') {
             <div class="days-list">
               @for (day of availableDays(); track day.dateStr) {
-                <div
-                  class="day-card"
-                  [class.cancelled]="day.isCancelled"
-                  [class.disabled]="!day.canCancel"
-                  (click)="toggleDay(day)"
-                >
-                  <div class="day-header">
-                    <span class="day-name">{{ day.dayName }}</span>
-                    <span class="day-date">{{ day.formatted }}</span>
+                @if (day.isHoliday) {
+                  <div class="day-card holiday-card">
+                    <div class="day-header">
+                      <span class="day-name">{{ day.dayName }}</span>
+                      <span class="day-date">{{ day.formatted }}</span>
+                    </div>
+                    <div class="day-body">
+                      <span class="meal-status holiday">🎉 {{ day.holidayName || 'Dzień wolny' }}</span>
+                    </div>
                   </div>
-                  <div class="day-body">
-                    @if (day.isCancelled) {
-                      <span class="meal-status cancelled">❌ Odwołany</span>
-                    } @else {
-                      <span class="meal-status active">✅ Zamówiony</span>
-                    }
+                } @else {
+                  <div
+                    class="day-card"
+                    [class.cancelled]="day.isCancelled"
+                    [class.disabled]="!day.canCancel"
+                    [class.out-of-range]="!day.isInAttendanceRange"
+                    (click)="day.isInAttendanceRange ? toggleDay(day) : null"
+                  >
+                    <div class="day-header">
+                      <span class="day-name">{{ day.dayName }}</span>
+                      <span class="day-date">{{ day.formatted }}</span>
+                    </div>
+                    <div class="day-body">
+                      @if (!day.isInAttendanceRange) {
+                        <span class="meal-status out-of-range">📅 Poza zakresem</span>
+                      } @else if (day.isCancelled) {
+                        <span class="meal-status cancelled">❌ Odwołany</span>
+                      } @else {
+                        <span class="meal-status active">✅ Zamówiony</span>
+                      }
+                    </div>
+                    <div class="day-footer">
+                      @if (!day.isInAttendanceRange) {
+                        <span class="out-of-range-info">Dziecko nie uczęszcza</span>
+                      } @else if (day.canCancel) {
+                        <button class="toggle-btn" [class.restore]="day.isCancelled">
+                          {{ day.isCancelled ? '🔄 Przywróć' : '❌ Odwołaj' }}
+                        </button>
+                      } @else {
+                        <span class="deadline-passed">⏰ Termin minął</span>
+                      }
+                    </div>
                   </div>
-                  <div class="day-footer">
-                    @if (day.canCancel) {
-                      <button class="toggle-btn" [class.restore]="day.isCancelled">
-                        {{ day.isCancelled ? '🔄 Przywróć' : '❌ Odwołaj' }}
-                      </button>
-                    } @else {
-                      <span class="deadline-passed">⏰ Termin minął</span>
-                    }
-                  </div>
-                </div>
+                }
               }
             </div>
           } @else {
@@ -97,14 +116,19 @@ type ViewMode = 'weekly' | 'monthly';
                 <div 
                   class="calendar-day" 
                   [class.not-current-month]="!day.isCurrentMonth"
-                  [class.not-working-day]="!day.isWorkingDay"
+                  [class.not-working-day]="!day.isWorkingDay && !day.isHoliday"
+                  [class.holiday]="day.isHoliday && day.isCurrentMonth"
+                  [class.out-of-range]="!day.isInAttendanceRange && day.isCurrentMonth"
                   [class.cancelled]="day.isCancelled"
                   [class.disabled]="!day.canCancel"
                   [class.is-today]="day.isToday"
-                  (click)="day.isWorkingDay && day.isCurrentMonth ? toggleDay(day) : null"
+                  [title]="day.holidayName || ''"
+                  (click)="day.isWorkingDay && day.isCurrentMonth && day.isInAttendanceRange ? toggleDay(day) : null"
                 >
                   <span class="calendar-day-number">{{ day.dayNumber }}</span>
-                  @if (day.isWorkingDay && day.isCurrentMonth) {
+                  @if (day.isHoliday && day.isCurrentMonth) {
+                    <span class="calendar-status holiday-label" [title]="day.holidayName || 'Dzień wolny'">🎉</span>
+                  } @else if (day.isWorkingDay && day.isCurrentMonth && day.isInAttendanceRange) {
                     @if (day.isCancelled) {
                       <span class="calendar-status cancelled">❌</span>
                     } @else if (day.canCancel) {
@@ -119,6 +143,7 @@ type ViewMode = 'weekly' | 'monthly';
             <div class="calendar-legend">
               <span class="legend-item"><span class="legend-dot active"></span> Zamówiony</span>
               <span class="legend-item"><span class="legend-dot cancelled"></span> Odwołany</span>
+              <span class="legend-item"><span class="legend-dot holiday"></span> Dzień wolny</span>
             </div>
           }
         </section>
@@ -185,6 +210,12 @@ type ViewMode = 'weekly' | 'monthly';
       color: #999;
     }
 
+    .info-text .weekend-info {
+      color: #ff9800;
+      display: block;
+      margin-top: 0.5rem;
+    }
+
     .days-list {
       display: flex;
       flex-direction: column;
@@ -215,6 +246,18 @@ type ViewMode = 'weekly' | 'monthly';
     .day-card.disabled {
       opacity: 0.6;
       cursor: not-allowed;
+    }
+
+    .day-card.holiday-card {
+      background: #e8f5e9;
+      border-color: #c8e6c9;
+      cursor: default;
+    }
+
+    .day-card.out-of-range {
+      background: #f5f5f5;
+      border-color: #e0e0e0;
+      cursor: default;
     }
 
     .day-header {
@@ -252,6 +295,22 @@ type ViewMode = 'weekly' | 'monthly';
     .meal-status.active {
       color: #2e7d32;
       background: #e8f5e9;
+    }
+
+    .meal-status.holiday {
+      color: #2e7d32;
+      background: transparent;
+      font-weight: 500;
+    }
+
+    .meal-status.out-of-range {
+      color: #757575;
+      background: #eeeeee;
+    }
+
+    .out-of-range-info {
+      color: #757575;
+      font-size: 0.75rem;
     }
 
     .day-footer {
@@ -418,6 +477,17 @@ type ViewMode = 'weekly' | 'monthly';
       cursor: default;
     }
 
+    .calendar-day.holiday {
+      background: #e8f5e9;
+      cursor: default;
+    }
+
+    .calendar-day.out-of-range {
+      background: #fafafa;
+      cursor: default;
+      opacity: 0.5;
+    }
+
     .calendar-day.cancelled {
       background: #fff8f8;
       border-color: #ffcdd2;
@@ -439,6 +509,10 @@ type ViewMode = 'weekly' | 'monthly';
     .calendar-status {
       font-size: 0.75rem;
       margin-top: 2px;
+    }
+
+    .calendar-status.holiday-label {
+      font-size: 0.7rem;
     }
 
     .calendar-status.past {
@@ -474,6 +548,11 @@ type ViewMode = 'weekly' | 'monthly';
 
     .legend-dot.cancelled {
       background: #f44336;
+    }
+
+    .legend-dot.holiday {
+      background: #4CAF50;
+      opacity: 0.6;
     }
 
     @media (max-width: 480px) {
@@ -580,16 +659,21 @@ export class ParentCancellationComponent implements OnInit {
     const childId = this.auth.getChildId();
     if (!childId) return [];
 
+    const child = this.state.children().find(c => c.id === childId);
+    const holidays = settings.holidays || [];
     const calendarDays = this.dateService.getCalendarGrid(year, month);
     const today = new Date();
 
     return calendarDays.map(date => {
       const dateStr = this.dateService.toISODate(date);
       const isCurrentMonth = this.dateService.isInMonth(date, year, month);
-      const isWorkingDay = this.dateService.isWorkingDay(date);
+      const isHoliday = this.dateService.isHoliday(date, holidays);
+      const holidayName = this.dateService.getHolidayName(date, holidays);
+      const isWorkingDay = this.dateService.isWorkingDay(date) && !isHoliday;
       const isCancelled = this.state.isChildCancelledForDate(childId, dateStr);
-      const canCancel = this.dateService.canCancelForDate(date, settings.deadlineHour);
+      const canCancel = this.dateService.canCancelForDate(date, settings.deadlineHour, holidays);
       const isToday = this.dateService.isToday(date);
+      const isInAttendanceRange = this.dateService.isDateInAttendanceRange(date, child?.startDate, child?.endDate);
 
       return {
         date,
@@ -597,9 +681,12 @@ export class ParentCancellationComponent implements OnInit {
         dayNumber: date.getDate(),
         isCurrentMonth,
         isWorkingDay,
+        isHoliday,
+        holidayName,
         isCancelled,
-        canCancel: isCurrentMonth && isWorkingDay && canCancel,
+        canCancel: isCurrentMonth && isWorkingDay && canCancel && isInAttendanceRange,
         isToday,
+        isInAttendanceRange,
         dayName: this.dateService.formatPolish(date, 'EEEE'),
         formatted: this.dateService.formatPolish(date, 'd MMMM')
       };
@@ -613,14 +700,21 @@ export class ParentCancellationComponent implements OnInit {
     const childId = this.auth.getChildId();
     if (!childId) return [];
 
+    const child = this.state.children().find(c => c.id === childId);
+    const holidays = settings.holidays || [];
+
     for (let i = 1; i <= 14; i++) {
       const date = addDays(today, i);
+      const isHoliday = this.dateService.isHoliday(date, holidays);
+      const holidayName = this.dateService.getHolidayName(date, holidays);
 
-      if (!this.dateService.isWorkingDay(date)) continue;
+      // Skip weekends but include holidays (to show them as non-working)
+      if (!this.dateService.isWorkingDay(date) && !isHoliday) continue;
 
       const dateStr = this.dateService.toISODate(date);
       const isCancelled = this.state.isChildCancelledForDate(childId, dateStr);
-      const canCancel = this.dateService.canCancelForDate(date, settings.deadlineHour);
+      const canCancel = this.dateService.canCancelForDate(date, settings.deadlineHour, holidays);
+      const isInAttendanceRange = this.dateService.isDateInAttendanceRange(date, child?.startDate, child?.endDate);
 
       days.push({
         date,
@@ -628,7 +722,10 @@ export class ParentCancellationComponent implements OnInit {
         dayName: this.dateService.formatPolish(date, 'EEEE'),
         formatted: this.dateService.formatPolish(date, 'd MMMM'),
         isCancelled,
-        canCancel
+        canCancel: canCancel && isInAttendanceRange && !isHoliday,
+        isHoliday,
+        holidayName,
+        isInAttendanceRange
       });
 
       if (days.length >= 10) break;

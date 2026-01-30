@@ -3,6 +3,7 @@ import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { RouterLink } from '@angular/router';
 import { AppState } from '../../state/app.state';
+import { DateService } from '../../core/services/date.service';
 import { Child } from '../../shared/models';
 
 @Component({
@@ -54,7 +55,46 @@ import { Child } from '../../shared/models';
                 required
               />
             </div>
-            <button type="submit" class="btn primary" [disabled]="!newNickname.trim() || !newAccessCode.trim()">
+          </div>
+          <div class="attendance-range-section">
+            <label class="section-label">📅 Okres uczęszczania <span class="optional">(opcjonalnie)</span></label>
+            <div class="date-range-row">
+              <div class="date-field">
+                <span class="date-label">Od</span>
+                <input
+                  type="date"
+                  id="startDate"
+                  [(ngModel)]="newStartDate"
+                  name="startDate"
+                  class="date-input"
+                />
+                @if (newStartDate) {
+                  <button type="button" class="clear-date-btn" (click)="newStartDate = ''" title="Wyczyść">✕</button>
+                }
+              </div>
+              <span class="date-separator">→</span>
+              <div class="date-field">
+                <span class="date-label">Do</span>
+                <input
+                  type="date"
+                  id="endDate"
+                  [(ngModel)]="newEndDate"
+                  name="endDate"
+                  [min]="newStartDate"
+                  class="date-input"
+                />
+                @if (newEndDate) {
+                  <button type="button" class="clear-date-btn" (click)="newEndDate = ''" title="Wyczyść">✕</button>
+                }
+              </div>
+            </div>
+            <p class="date-hint">Pozostaw puste, jeśli dziecko uczęszcza bez ograniczeń czasowych</p>
+          </div>
+          @if (dateRangeError) {
+            <p class="error-message">{{ dateRangeError }}</p>
+          }
+          <div class="form-row">
+            <button type="submit" class="btn primary full-width" [disabled]="!newNickname.trim() || !newAccessCode.trim()">
               ➕ Dodaj
             </button>
           </div>
@@ -75,23 +115,48 @@ import { Child } from '../../shared/models';
               <li class="child-item" [class.inactive]="!child.isActive">
                 @if (editingId === child.id) {
                   <div class="edit-form">
-                    <input
-                      type="text"
-                      [(ngModel)]="editNickname"
-                      placeholder="Nick"
-                    />
-                    <input
-                      type="text"
-                      [(ngModel)]="editIdentifier"
-                      placeholder="ID"
-                    />
-                    <input
-                      type="text"
-                      [(ngModel)]="editAccessCode"
-                      placeholder="Kod dostępu"
-                    />
-                    <button class="btn small" (click)="saveEdit(child.id)">💾</button>
-                    <button class="btn small secondary" (click)="cancelEdit()">✕</button>
+                    <div class="edit-row">
+                      <input
+                        type="text"
+                        [(ngModel)]="editNickname"
+                        placeholder="Nick"
+                      />
+                      <input
+                        type="text"
+                        [(ngModel)]="editIdentifier"
+                        placeholder="ID"
+                      />
+                      <input
+                        type="text"
+                        [(ngModel)]="editAccessCode"
+                        placeholder="Kod dostępu"
+                      />
+                    </div>
+                    <div class="edit-date-section">
+                      <span class="edit-date-label">📅 Okres:</span>
+                      <div class="edit-date-row">
+                        <div class="edit-date-field">
+                          <input type="date" [(ngModel)]="editStartDate" placeholder="Od" />
+                          @if (editStartDate) {
+                            <button type="button" class="clear-date-btn small" (click)="editStartDate = ''">✕</button>
+                          }
+                        </div>
+                        <span class="edit-date-arrow">→</span>
+                        <div class="edit-date-field">
+                          <input type="date" [(ngModel)]="editEndDate" [min]="editStartDate" placeholder="Do" />
+                          @if (editEndDate) {
+                            <button type="button" class="clear-date-btn small" (click)="editEndDate = ''">✕</button>
+                          }
+                        </div>
+                      </div>
+                    </div>
+                    @if (editDateRangeError) {
+                      <p class="error-message small">{{ editDateRangeError }}</p>
+                    }
+                    <div class="edit-actions">
+                      <button class="btn small" (click)="saveEdit(child.id)">💾</button>
+                      <button class="btn small secondary" (click)="cancelEdit()">✕</button>
+                    </div>
                   </div>
                 } @else {
                   <div class="child-info">
@@ -107,6 +172,20 @@ import { Child } from '../../shared/models';
                     <div class="child-access-code">
                       Kod: <code>{{ child.accessCode }}</code>
                     </div>
+                    @if (child.startDate || child.endDate) {
+                      <div class="child-dates">
+                        <span class="dates-icon">📅</span>
+                        <span class="dates-range">
+                          @if (child.startDate && child.endDate) {
+                            {{ formatDate(child.startDate) }} → {{ formatDate(child.endDate) }}
+                          } @else if (child.startDate) {
+                            od {{ formatDate(child.startDate) }}
+                          } @else if (child.endDate) {
+                            do {{ formatDate(child.endDate) }}
+                          }
+                        </span>
+                      </div>
+                    }
                   </div>
                   <div class="child-actions">
                     <button
@@ -354,15 +433,214 @@ import { Child } from '../../shared/models';
 
     .edit-form {
       display: flex;
-      gap: 0.5rem;
+      flex-direction: column;
+      gap: 0.75rem;
       width: 100%;
     }
 
-    .edit-form input {
+    .edit-row {
+      display: flex;
+      gap: 0.5rem;
+      flex-wrap: wrap;
+    }
+
+    .edit-row input[type="text"] {
       flex: 1;
+      min-width: 80px;
       padding: 0.5rem;
       border: 1px solid #ddd;
       border-radius: 6px;
+    }
+
+    /* Attendance range section - Add form */
+    .attendance-range-section {
+      background: #f8f9fa;
+      border-radius: 10px;
+      padding: 1rem;
+      border: 1px dashed #ddd;
+    }
+
+    .section-label {
+      display: block;
+      font-size: 0.875rem;
+      font-weight: 500;
+      color: #333;
+      margin-bottom: 0.75rem;
+    }
+
+    .section-label .optional {
+      font-weight: 400;
+      color: #999;
+      font-size: 0.75rem;
+    }
+
+    .date-range-row {
+      display: flex;
+      align-items: center;
+      gap: 0.75rem;
+      flex-wrap: wrap;
+    }
+
+    .date-field {
+      display: flex;
+      flex-direction: column;
+      gap: 0.25rem;
+      position: relative;
+      flex: 1;
+      min-width: 140px;
+    }
+
+    .date-label {
+      font-size: 0.7rem;
+      color: #666;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+    }
+
+    .date-input {
+      padding: 0.625rem 2rem 0.625rem 0.75rem;
+      border: 1px solid #ddd;
+      border-radius: 8px;
+      font-size: 0.9rem;
+      background: white;
+      transition: border-color 0.2s, box-shadow 0.2s;
+    }
+
+    .date-input:focus {
+      outline: none;
+      border-color: #4CAF50;
+      box-shadow: 0 0 0 3px rgba(76, 175, 80, 0.1);
+    }
+
+    .clear-date-btn {
+      position: absolute;
+      right: 0.5rem;
+      bottom: 0.5rem;
+      background: #eee;
+      border: none;
+      border-radius: 50%;
+      width: 20px;
+      height: 20px;
+      font-size: 0.7rem;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      color: #666;
+      transition: background 0.2s;
+    }
+
+    .clear-date-btn:hover {
+      background: #ddd;
+      color: #333;
+    }
+
+    .clear-date-btn.small {
+      width: 18px;
+      height: 18px;
+      font-size: 0.6rem;
+    }
+
+    .date-separator {
+      font-size: 1.25rem;
+      color: #999;
+      margin-top: 1rem;
+    }
+
+    .date-hint {
+      font-size: 0.75rem;
+      color: #888;
+      margin: 0.75rem 0 0;
+      font-style: italic;
+    }
+
+    /* Edit form date section */
+    .edit-date-section {
+      background: #f8f9fa;
+      border-radius: 8px;
+      padding: 0.75rem;
+      width: 100%;
+    }
+
+    .edit-date-label {
+      font-size: 0.75rem;
+      color: #666;
+      display: block;
+      margin-bottom: 0.5rem;
+    }
+
+    .edit-date-row {
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+      flex-wrap: wrap;
+    }
+
+    .edit-date-field {
+      display: flex;
+      align-items: center;
+      gap: 0.25rem;
+      position: relative;
+      flex: 1;
+      min-width: 120px;
+    }
+
+    .edit-date-field input[type="date"] {
+      flex: 1;
+      padding: 0.5rem 1.75rem 0.5rem 0.5rem;
+      border: 1px solid #ddd;
+      border-radius: 6px;
+      font-size: 0.8rem;
+      background: white;
+    }
+
+    .edit-date-field input[type="date"]:focus {
+      outline: none;
+      border-color: #4CAF50;
+    }
+
+    .edit-date-arrow {
+      color: #999;
+      font-size: 1rem;
+    }
+
+    .edit-actions {
+      display: flex;
+      gap: 0.5rem;
+      justify-content: flex-end;
+    }
+
+    .error-message.small {
+      font-size: 0.75rem;
+      margin: 0;
+    }
+
+    /* Child dates display */
+    .child-dates {
+      display: flex;
+      align-items: center;
+      gap: 0.375rem;
+      font-size: 0.75rem;
+      color: #666;
+      background: #e3f2fd;
+      padding: 0.25rem 0.5rem;
+      border-radius: 6px;
+      width: fit-content;
+      margin-top: 0.25rem;
+    }
+
+    .dates-icon {
+      font-size: 0.7rem;
+    }
+
+    .dates-range {
+      font-size: 0.7rem;
+      color: #666;
+      margin-top: 0.25rem;
+    }
+
+    .btn.full-width {
+      width: 100%;
     }
 
     .modal-overlay {
@@ -405,32 +683,62 @@ import { Child } from '../../shared/models';
 })
 export class ChildrenComponent {
   state = inject(AppState);
+  private dateService = inject(DateService);
 
   newNickname = '';
   newIdentifier = '';
   newAccessCode = '';
+  newStartDate = '';
+  newEndDate = '';
   error = '';
+  dateRangeError = '';
 
   editingId: string | null = null;
   editNickname = '';
   editIdentifier = '';
   editAccessCode = '';
+  editStartDate = '';
+  editEndDate = '';
+  editDateRangeError = '';
 
   showDeleteConfirm = false;
   childToDelete: Child | null = null;
 
+  formatDate(dateStr: string): string {
+    if (!dateStr) return '';
+    const date = this.dateService.parseISODate(dateStr);
+    return this.dateService.formatPolish(date, 'd MMM yyyy');
+  }
+
+  validateDateRange(startDate: string, endDate: string): boolean {
+    if (startDate && endDate && endDate < startDate) {
+      return false;
+    }
+    return true;
+  }
+
   async addChild() {
     if (!this.newNickname.trim() || !this.newAccessCode.trim()) return;
+
+    this.dateRangeError = '';
+    if (!this.validateDateRange(this.newStartDate, this.newEndDate)) {
+      this.dateRangeError = 'Data "do" musi być późniejsza niż data "od"';
+      return;
+    }
 
     try {
       await this.state.addChild(
         this.newNickname.trim(),
         this.newIdentifier.trim() || undefined,
-        this.newAccessCode.trim()
+        this.newAccessCode.trim(),
+        this.newStartDate || null,
+        this.newEndDate || null
       );
       this.newNickname = '';
       this.newIdentifier = '';
       this.newAccessCode = '';
+      this.newStartDate = '';
+      this.newEndDate = '';
       this.error = '';
     } catch (e) {
       console.error('Error adding child:', e);
@@ -443,16 +751,27 @@ export class ChildrenComponent {
     this.editNickname = child.nickname;
     this.editIdentifier = child.identifier || '';
     this.editAccessCode = child.accessCode;
+    this.editStartDate = child.startDate || '';
+    this.editEndDate = child.endDate || '';
+    this.editDateRangeError = '';
   }
 
   async saveEdit(id: string) {
     if (!this.editNickname.trim() || !this.editAccessCode.trim()) return;
 
+    this.editDateRangeError = '';
+    if (!this.validateDateRange(this.editStartDate, this.editEndDate)) {
+      this.editDateRangeError = 'Data "do" musi być późniejsza niż data "od"';
+      return;
+    }
+
     await this.state.updateChild(
       id,
       this.editNickname.trim(),
       this.editIdentifier.trim() || undefined,
-      this.editAccessCode.trim()
+      this.editAccessCode.trim(),
+      this.editStartDate || null,
+      this.editEndDate || null
     );
     this.cancelEdit();
   }
@@ -462,6 +781,9 @@ export class ChildrenComponent {
     this.editNickname = '';
     this.editIdentifier = '';
     this.editAccessCode = '';
+    this.editStartDate = '';
+    this.editEndDate = '';
+    this.editDateRangeError = '';
   }
 
   async toggleActive(id: string) {

@@ -131,21 +131,28 @@ export class MealService {
     const allCancellations = await this.storage.getAllCancellations();
 
     const childSummaries: ChildMonthlySummary[] = activeChildren.map(child => {
+      // Filter working days by child's attendance range
+      const childWorkingDays = workingDays.filter(date => 
+        this.dateService.isDateInAttendanceRange(date, child.startDate, child.endDate)
+      );
+
       const childCancellations = allCancellations.filter(c => {
         if (c.childId !== child.id) return false;
         const date = this.dateService.parseISODate(c.date);
-        return date.getFullYear() === year && date.getMonth() === month;
+        if (date.getFullYear() !== year || date.getMonth() !== month) return false;
+        // Only count cancellations within child's attendance range
+        return this.dateService.isDateInAttendanceRange(date, child.startDate, child.endDate);
       });
 
       const cancelledDays = childCancellations.length;
-      const mealsToPay = workingDays.length - cancelledDays;
+      const mealsToPay = childWorkingDays.length - cancelledDays;
       const amountToPay = mealsToPay * settings.globalMealRate;
 
       return {
         childId: child.id,
         childNickname: child.nickname,
         childIdentifier: child.identifier,
-        workingDays: workingDays.length,
+        workingDays: childWorkingDays.length,
         cancelledDays,
         mealsToPay,
         amountToPay

@@ -14,7 +14,7 @@ import { addDays } from 'date-fns';
     <div class="cancellation-page">
       <header class="page-header">
         <a routerLink="/admin" class="back-link">← Powrót</a>
-        <h1>📝 Odwołaj Posiłek</h1>
+        <h1>📝 Odwołaj posiłki na dany dzień</h1>
       </header>
 
       @if (state.activeChildren().length === 0) {
@@ -385,15 +385,16 @@ export class CancellationComponent implements OnInit {
     const today = new Date();
     const days = [];
     const settings = this.state.settings();
+    const holidays = settings.holidays || [];
 
     for (let i = 1; i <= 14; i++) {
       const date = addDays(today, i);
       
-      // Skip weekends
-      if (!this.dateService.isWorkingDay(date)) continue;
+      // Skip weekends and holidays
+      if (!this.dateService.isWorkingDayWithHolidays(date, holidays)) continue;
 
       const dateStr = this.dateService.toISODate(date);
-      const canCancel = this.dateService.canCancelForDate(date, settings.deadlineHour);
+      const canCancel = this.dateService.canCancelForDate(date, settings.deadlineHour, holidays);
 
       days.push({
         date,
@@ -420,7 +421,8 @@ export class CancellationComponent implements OnInit {
     const dateStr = this._selectedDate();
     if (!dateStr) return false;
     const settings = this.state.settings();
-    return this.dateService.canCancelForDate(dateStr, settings.deadlineHour);
+    const holidays = settings.holidays || [];
+    return this.dateService.canCancelForDate(dateStr, settings.deadlineHour, holidays);
   });
 
   mealsOrdered = computed(() => {

@@ -1,6 +1,7 @@
 import { Injectable, signal, computed, inject } from '@angular/core';
-import { Child, MealCancellation, AppSettings, DEFAULT_SETTINGS } from '../shared/models';
+import { Child, MealCancellation, AppSettings, DEFAULT_SETTINGS, Holiday } from '../shared/models';
 import { FirestoreService, ChildService, MealService, DateService } from '../core/services';
+import { addDays } from 'date-fns';
 
 export interface CalendarDay {
   date: Date;
@@ -11,6 +12,15 @@ export interface CalendarDay {
   isPast: boolean;
   canCancel: boolean;
   cancellations: MealCancellation[];
+  isHoliday: boolean;
+  holidayName: string | null;
+}
+
+export interface NextWorkingDayInfo {
+  date: Date;
+  dateStr: string;
+  formatted: string;
+  cancellationsCount: number;
 }
 
 @Injectable({
@@ -54,22 +64,27 @@ export class AppState {
     const month = this._currentMonth();
     const settings = this._settings();
     const cancellations = this._cancellations();
+    const holidays = settings.holidays || [];
 
     const days = this.dateService.getCalendarGrid(year, month);
 
     return days.map(date => {
       const dateStr = this.dateService.toISODate(date);
       const dayCancellations = cancellations.filter(c => c.date === dateStr);
+      const isHoliday = this.dateService.isHoliday(date, holidays);
+      const holidayName = this.dateService.getHolidayName(date, holidays);
 
       return {
         date,
         dateStr,
         isCurrentMonth: this.dateService.isInMonth(date, year, month),
-        isWorkingDay: this.dateService.isWorkingDay(date),
+        isWorkingDay: this.dateService.isWorkingDay(date) && !isHoliday,
         isToday: this.dateService.isToday(date),
         isPast: this.dateService.isPast(date),
-        canCancel: this.dateService.canCancelForDate(date, settings.deadlineHour),
-        cancellations: dayCancellations
+        canCancel: this.dateService.canCancelForDate(date, settings.deadlineHour, holidays),
+        cancellations: dayCancellations,
+        isHoliday,
+        holidayName
       };
     });
   });
@@ -78,6 +93,37 @@ export class AppState {
     const year = this._currentYear();
     const month = this._currentMonth();
     return this.dateService.getWorkingDaysInMonth(year, month);
+  });
+
+  // Computed: Info about the next working day (for dashboard info box)
+  readonly nextWorkingDayInfo = computed((): NextWorkingDayInfo | null => {
+    const settings = this._settings();
+    const cancellations = this._cancellations();
+    const holidays = settings.holidays || [];
+    const today = new Date();
+
+    // Find the next working day (starting from tomorrow, not today)
+    let nextWorkingDay: Date | null = null;
+    
+    for (let i = 1; i <= 14; i++) {
+      const date = addDays(today, i);
+      if (this.dateService.isWorkingDayWithHolidays(date, holidays)) {
+        nextWorkingDay = date;
+        break;
+      }
+    }
+
+    if (!nextWorkingDay) return null;
+
+    const dateStr = this.dateService.toISODate(nextWorkingDay);
+    const dayCancellations = cancellations.filter(c => c.date === dateStr);
+
+    return {
+      date: nextWorkingDay,
+      dateStr,
+      formatted: this.dateService.formatPolish(nextWorkingDay, 'EEEE, d MMMM'),
+      cancellationsCount: dayCancellations.length
+    };
   });
 
   // Initialize state from IndexedDB
@@ -105,15 +151,15 @@ export class AppState {
   }
 
   // Children management
-  async addChild(nickname: string, identifier?: string, accessCode?: string): Promise<Child> {
+  async addChild(nickname: string, identifier?: string, accessCode?: string, startDate?: string | null, endDate?: string | null): Promise<Child> {
     const code = accessCode || nickname.toLowerCase().replace(/\s+/g, '') + Math.random().toString(36).substring(2, 6);
-    const child = await this.childService.createChild({ nickname, identifier, accessCode: code });
+    const child = await this.childService.createChild({ nickname, identifier, accessCode: code, startDate, endDate });
     this._children.update(children => [...children, child]);
     return child;
   }
 
-  async updateChild(id: string, nickname: string, identifier?: string, accessCode?: string): Promise<void> {
-    await this.childService.updateChild(id, { nickname, identifier, accessCode });
+  async updateChild(id: string, nickname: string, identifier?: string, accessCode?: string, startDate?: string | null, endDate?: string | null): Promise<void> {
+    await this.childService.updateChild(id, { nickname, identifier, accessCode, startDate, endDate });
     await this.refreshChildren();
   }
 
@@ -217,6 +263,27 @@ export class AppState {
 
   async updateShowPaymentPanel(show: boolean): Promise<void> {
     const updated = await this.mealService.updateSettings({ showPaymentPanel: show });
+    this._settings.set(updated);
+  }
+
+  async addHoliday(date: string, name: string): Promise<void> {
+    const currentSettings = this._settings();
+    const holidays = currentSettings.holidays || [];
+    if (!holidays.some(h => h.date === date)) {
+      const newHoliday: Holiday = { date, name };
+      const updated = await this.mealService.updateSettings({ 
+        holidays: [...holidays, newHoliday].sort((a, b) => a.date.localeCompare(b.date)) 
+      });
+      this._settings.set(updated);
+    }
+  }
+
+  async removeHoliday(date: string): Promise<void> {
+    const currentSettings = this._settings();
+    const holidays = currentSettings.holidays || [];
+    const updated = await this.mealService.updateSettings({ 
+      holidays: holidays.filter(h => h.date !== date) 
+    });
     this._settings.set(updated);
   }
 

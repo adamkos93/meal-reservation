@@ -326,11 +326,22 @@ export class ParentSummaryComponent implements OnInit {
       return;
     }
 
+    const child = this.state.children().find(c => c.id === childId);
     const year = this.currentYear();
     const month = this.currentMonth();
     const settings = this.state.settings();
+    const holidays = settings.holidays || [];
 
-    const workingDays = this.dateService.getWorkingDaysInMonth(year, month);
+    // Get all working days in month, then filter by child's attendance range and holidays
+    const allWorkingDays = this.dateService.getWorkingDaysInMonth(year, month);
+    const workingDays = allWorkingDays.filter(date => {
+      // Exclude holidays
+      if (this.dateService.isHoliday(date, holidays)) return false;
+      // Exclude days outside child's attendance range
+      if (!this.dateService.isDateInAttendanceRange(date, child?.startDate, child?.endDate)) return false;
+      return true;
+    });
+
     const cancellations = this.state.cancellations().filter(c => {
       if (c.childId !== childId) return false;
       const date = this.dateService.parseISODate(c.date);

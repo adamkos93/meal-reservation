@@ -394,8 +394,31 @@ export class ReportsComponent {
   state = inject(AppState);
   private dateService = inject(DateService);
 
-  private _year = signal(new Date().getFullYear());
-  private _month = signal(new Date().getMonth());
+  // Raporty zaczynają się od lutego 2026
+  private getInitialYear(): number {
+    const now = new Date();
+    const year = now.getFullYear();
+    const month = now.getMonth();
+    // Jeśli jesteśmy przed lutym 2026, ustaw luty 2026
+    if (year === 2026 && month < 1) {
+      return 2026;
+    }
+    return year;
+  }
+
+  private getInitialMonth(): number {
+    const now = new Date();
+    const year = now.getFullYear();
+    const month = now.getMonth();
+    // Jeśli jesteśmy przed lutym 2026, ustaw luty 2026
+    if (year === 2026 && month < 1) {
+      return 1; // luty
+    }
+    return month;
+  }
+
+  private _year = signal(this.getInitialYear());
+  private _month = signal(this.getInitialMonth());
   private _report = signal<MonthlyReport | null>(null);
   private _isLoading = signal(false);
 
@@ -409,8 +432,8 @@ export class ReportsComponent {
   canGoBack = computed(() => {
     const year = this._year();
     const month = this._month();
-    // Nie pozwalamy cofać się przed styczeń 2026
-    return !(year === 2026 && month === 0);
+    // Nie pozwalamy cofać się przed luty 2026
+    return !(year === 2026 && month === 1);
   });
 
   dailySummary = computed(() => {
@@ -418,19 +441,31 @@ export class ReportsComponent {
     if (!report) return [];
 
     const workingDays = this.dateService.getWorkingDaysInMonth(this._year(), this._month());
-    const activeCount = this.state.activeChildren().length;
+    const activeChildren = this.state.activeChildren();
     const cancellations = this.state.cancellations();
 
     return workingDays.map(date => {
       const dateStr = this.dateService.toISODate(date);
-      const cancelled = cancellations.filter(c => c.date === dateStr).length;
+      
+      // Count children attending on this day (within their attendance range)
+      const childrenAttendingToday = activeChildren.filter(child => 
+        this.dateService.isDateInAttendanceRange(date, child.startDate, child.endDate)
+      ).length;
+      
+      // Count cancellations for children who are within their attendance range
+      const cancelled = cancellations.filter(c => {
+        if (c.date !== dateStr) return false;
+        const child = activeChildren.find(ch => ch.id === c.childId);
+        if (!child) return false;
+        return this.dateService.isDateInAttendanceRange(date, child.startDate, child.endDate);
+      }).length;
 
       return {
         date,
         dateStr,
         dayName: this.dateService.formatPolish(date, 'EEE'),
         formatted: this.dateService.formatPolish(date, 'd MMM'),
-        mealsOrdered: activeCount - cancelled,
+        mealsOrdered: childrenAttendingToday - cancelled,
         cancelled,
         isPast: this.dateService.isPast(date)
       };

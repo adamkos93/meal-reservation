@@ -89,10 +89,6 @@ import { AuthService } from '../../core/services/auth.service';
             <span>⚠️</span> {{ error() }}
           </div>
         }
-
-        <div class="login-footer">
-          <p>Domyślny PIN admina: <code>1234</code></p>
-        </div>
       </div>
     </div>
   `,

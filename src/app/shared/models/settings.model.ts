@@ -1,9 +1,15 @@
+export interface Holiday {
+  date: string; // Format YYYY-MM-DD
+  name: string; // Nazwa dnia wolnego (np. "Boże Narodzenie")
+}
+
 export interface AppSettings {
   id: string;
   globalMealRate: number; // PLN per day (za dzień wyżywienia)
   deadlineHour: number; // Hour of deadline (default 17)
   adminPin: string; // PIN administratora
   showPaymentPanel: boolean; // Feature flag - czy pokazywać panel płatności rodzicom
+  holidays: Holiday[]; // Dni wolne (święta)
 }
 
 export const DEFAULT_SETTINGS: AppSettings = {
@@ -11,5 +17,6 @@ export const DEFAULT_SETTINGS: AppSettings = {
   globalMealRate: 8.5,
   deadlineHour: 17,
   adminPin: '1234',
-  showPaymentPanel: true
+  showPaymentPanel: true,
+  holidays: []
 };

@@ -22,6 +22,25 @@ import { AuthService } from '../../core/services/auth.service';
       @if (state.isLoading()) {
         <div class="loading">Ładowanie...</div>
       } @else {
+        @if (state.nextWorkingDayInfo(); as nextDay) {
+          <div class="next-day-info">
+            <div class="next-day-header">
+              <span class="next-day-icon">📅</span>
+              <span class="next-day-title">Najbliższy dzień roboczy</span>
+            </div>
+            <div class="next-day-details">
+              <span class="next-day-date">{{ nextDay.formatted }}</span>
+              <span class="next-day-cancellations" [class.has-cancellations]="nextDay.cancellationsCount > 0">
+                @if (nextDay.cancellationsCount > 0) {
+                  ❌ Odwołano: {{ nextDay.cancellationsCount }} {{ nextDay.cancellationsCount === 1 ? 'posiłek' : (nextDay.cancellationsCount < 5 ? 'posiłki' : 'posiłków') }}
+                } @else {
+                  ✅ Brak odwołań
+                }
+              </span>
+            </div>
+          </div>
+        }
+
         <div class="calendar-container">
           <div class="calendar-header">
             <button class="nav-btn" (click)="state.previousMonth()" [disabled]="!state.canGoBack()">
@@ -43,14 +62,20 @@ import { AuthService } from '../../core/services/auth.service';
                 class="calendar-day"
                 [class.other-month]="!day.isCurrentMonth"
                 [class.today]="day.isToday"
-                [class.weekend]="!day.isWorkingDay"
+                [class.weekend]="!day.isWorkingDay && !day.isHoliday"
+                [class.holiday]="day.isHoliday && day.isCurrentMonth"
                 [class.past]="day.isPast"
                 [class.has-cancellations]="day.cancellations.length > 0"
                 [class.clickable]="day.isCurrentMonth && day.isWorkingDay && day.canCancel"
                 (click)="onDayClick(day)"
+                [title]="day.holidayName || ''"
               >
                 <span class="day-number">{{ day.date.getDate() }}</span>
-                @if (day.isCurrentMonth && day.isWorkingDay) {
+                @if (day.isCurrentMonth && day.isHoliday) {
+                  <div class="day-info">
+                    <span class="holiday-badge" [title]="day.holidayName || 'Dzień wolny'">🎉</span>
+                  </div>
+                } @else if (day.isCurrentMonth && day.isWorkingDay) {
                   <div class="day-info">
                     @if (day.cancellations.length > 0) {
                       <span class="cancelled-badge">
@@ -76,6 +101,10 @@ import { AuthService } from '../../core/services/auth.service';
               <span>Są odwołania</span>
             </div>
             <div class="legend-item">
+              <span class="legend-color holiday"></span>
+              <span>Dzień wolny</span>
+            </div>
+            <div class="legend-item">
               <span class="legend-icon">⏰</span>
               <span>Deadline minął (17:00)</span>
             </div>
@@ -95,7 +124,7 @@ import { AuthService } from '../../core/services/auth.service';
 
         <nav class="quick-links">
           <a routerLink="/admin/cancellation" class="quick-link primary">
-            📝 Odwołaj posiłek
+            📝 Odwołaj posiłki na dany dzień
           </a>
           <a routerLink="/admin/children" class="quick-link">
             👶 Zarządzaj dziećmi
@@ -159,6 +188,57 @@ import { AuthService } from '../../core/services/auth.service';
       text-align: center;
       padding: 3rem;
       color: #666;
+    }
+
+    .next-day-info {
+      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+      border-radius: 12px;
+      padding: 1.25rem;
+      margin-bottom: 1.5rem;
+      color: white;
+      box-shadow: 0 4px 12px rgba(102, 126, 234, 0.3);
+    }
+
+    .next-day-header {
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+      margin-bottom: 0.75rem;
+    }
+
+    .next-day-icon {
+      font-size: 1.25rem;
+    }
+
+    .next-day-title {
+      font-size: 0.875rem;
+      opacity: 0.9;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+    }
+
+    .next-day-details {
+      display: flex;
+      flex-direction: column;
+      gap: 0.5rem;
+    }
+
+    .next-day-date {
+      font-size: 1.25rem;
+      font-weight: 600;
+      text-transform: capitalize;
+    }
+
+    .next-day-cancellations {
+      font-size: 1rem;
+      padding: 0.5rem 0.75rem;
+      background: rgba(255,255,255,0.2);
+      border-radius: 8px;
+      display: inline-block;
+    }
+
+    .next-day-cancellations.has-cancellations {
+      background: rgba(244, 67, 54, 0.3);
     }
 
     .calendar-container {
@@ -264,6 +344,11 @@ import { AuthService } from '../../core/services/auth.service';
       background: #4CAF50;
     }
 
+    .calendar-day.holiday {
+      background: #e8f5e9;
+      color: #2e7d32;
+    }
+
     .day-number {
       font-weight: 600;
       font-size: 1rem;
@@ -288,6 +373,12 @@ import { AuthService } from '../../core/services/auth.service';
       padding: 2px 4px;
       border-radius: 3px;
       line-height: 1;
+    }
+
+    .holiday-badge {
+      font-size: 0.6rem;
+      line-height: 1;
+      white-space: nowrap;
     }
 
     .deadline-passed {
@@ -345,6 +436,11 @@ import { AuthService } from '../../core/services/auth.service';
     .legend-color.cancelled {
       background: #ffebee;
       border: 1px solid #f44336;
+    }
+
+    .legend-color.holiday {
+      background: #e8f5e9;
+      border: 1px solid #4CAF50;
     }
 
     .legend-icon {
