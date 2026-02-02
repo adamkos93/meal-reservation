@@ -21,7 +21,7 @@ import { Holiday } from '../../shared/models';
       <section class="settings-section">
         <h2>Stawka za wyżywienie</h2>
         <div class="setting-row">
-          <label for="mealRate">Cena za jeden dzień wyżywienia (PLN)</label>
+          <label for="mealRate">Domyślna cena za jeden dzień wyżywienia (PLN)</label>
           <div class="input-group">
             <input
               type="number"
@@ -35,6 +35,63 @@ import { Holiday } from '../../shared/models';
             </button>
           </div>
         </div>
+      </section>
+
+      <section class="settings-section">
+        <h2>📅 Okresy ze zmienioną stawką</h2>
+        <p class="section-description">
+          Opcjonalnie możesz ustawić różne stawki dla określonych zakresów dat (np. podwyżka od nowego roku).
+          Dla miesięcy spoza zdefiniowanych okresów używana jest domyślna stawka powyżej.
+        </p>
+        <div class="period-form">
+          <div class="period-dates">
+            <input
+              type="date"
+              [(ngModel)]="newPeriodStartDate"
+              class="period-input"
+              placeholder="Od"
+            />
+            <span class="period-separator">—</span>
+            <input
+              type="date"
+              [(ngModel)]="newPeriodEndDate"
+              class="period-input"
+              placeholder="Do"
+            />
+          </div>
+          <div class="period-rate-row">
+            <input
+              type="number"
+              [(ngModel)]="newPeriodRate"
+              min="0"
+              step="0.01"
+              class="period-rate-input"
+              placeholder="Stawka PLN"
+            />
+            <button 
+              class="btn primary" 
+              (click)="addMealRatePeriod()" 
+              [disabled]="!newPeriodStartDate || !newPeriodEndDate || !newPeriodRate"
+            >
+              ➕ Dodaj
+            </button>
+          </div>
+        </div>
+        @if (mealRatePeriods().length > 0) {
+          <ul class="periods-list">
+            @for (period of mealRatePeriods(); track period.id) {
+              <li class="period-item">
+                <div class="period-info">
+                  <span class="period-dates-display">{{ formatPeriodDate(period.startDate) }} — {{ formatPeriodDate(period.endDate) }}</span>
+                  <span class="period-rate-display">{{ period.rate.toFixed(2) }} PLN/dzień</span>
+                </div>
+                <button class="btn small danger" (click)="removeMealRatePeriod(period.id)">❌</button>
+              </li>
+            }
+          </ul>
+        } @else {
+          <p class="empty-message">Brak dodanych okresów — używana jest domyślna stawka</p>
+        }
       </section>
 
       <section class="settings-section">
@@ -290,6 +347,84 @@ import { Holiday } from '../../shared/models';
       border-radius: 8px;
       font-size: 1rem;
       min-width: 200px;
+    }
+
+    .period-form {
+      display: flex;
+      flex-direction: column;
+      gap: 0.5rem;
+      margin-bottom: 1rem;
+    }
+
+    .period-dates {
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+      flex-wrap: wrap;
+    }
+
+    .period-input {
+      padding: 0.75rem;
+      border: 1px solid #ddd;
+      border-radius: 8px;
+      font-size: 1rem;
+      flex: 1;
+      min-width: 140px;
+    }
+
+    .period-separator {
+      color: #666;
+    }
+
+    .period-rate-row {
+      display: flex;
+      gap: 0.5rem;
+    }
+
+    .period-rate-input {
+      flex: 1;
+      padding: 0.75rem;
+      border: 1px solid #ddd;
+      border-radius: 8px;
+      font-size: 1rem;
+    }
+
+    .periods-list {
+      list-style: none;
+      padding: 0;
+      margin: 0;
+      max-height: 200px;
+      overflow-y: auto;
+    }
+
+    .period-item {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 0.75rem;
+      border-bottom: 1px solid #eee;
+      gap: 1rem;
+    }
+
+    .period-item:last-child {
+      border-bottom: none;
+    }
+
+    .period-info {
+      display: flex;
+      flex-direction: column;
+      gap: 0.25rem;
+    }
+
+    .period-dates-display {
+      font-size: 0.875rem;
+      color: #666;
+    }
+
+    .period-rate-display {
+      font-weight: 500;
+      font-size: 1rem;
+      color: #4CAF50;
     }
 
     .holidays-list {
@@ -552,6 +687,9 @@ export class SettingsComponent {
   adminPin = '';
   newHolidayDate = '';
   newHolidayName = '';
+  newPeriodStartDate = '';
+  newPeriodEndDate = '';
+  newPeriodRate: number | null = null;
   hours = Array.from({ length: 19 }, (_, i) => i + 5); // 5-23
   
   private _isSaving = signal(false);
@@ -571,6 +709,11 @@ export class SettingsComponent {
     return (settings.holidays || []).slice().sort((a, b) => a.date.localeCompare(b.date));
   });
 
+  mealRatePeriods = computed(() => {
+    const settings = this.state.settings();
+    return (settings.mealRatePeriods || []).slice().sort((a, b) => a.startDate.localeCompare(b.startDate));
+  });
+
   formatHolidayDate(dateStr: string): string {
     const date = this.dateService.parseISODate(dateStr);
     return this.dateService.formatPolish(date, 'EEEE, d MMMM yyyy');
@@ -587,6 +730,25 @@ export class SettingsComponent {
 
   async removeHoliday(date: string) {
     await this.state.removeHoliday(date);
+  }
+
+  formatPeriodDate(dateStr: string): string {
+    const date = this.dateService.parseISODate(dateStr);
+    return this.dateService.formatPolish(date, 'd MMM yyyy');
+  }
+
+  async addMealRatePeriod() {
+    if (!this.newPeriodStartDate || !this.newPeriodEndDate || !this.newPeriodRate) return;
+    await this.state.addMealRatePeriod(this.newPeriodStartDate, this.newPeriodEndDate, this.newPeriodRate);
+    this.newPeriodStartDate = '';
+    this.newPeriodEndDate = '';
+    this.newPeriodRate = null;
+    this._saveSuccess.set(true);
+    setTimeout(() => this._saveSuccess.set(false), 3000);
+  }
+
+  async removeMealRatePeriod(id: string) {
+    await this.state.removeMealRatePeriod(id);
   }
 
   async saveMealRate() {

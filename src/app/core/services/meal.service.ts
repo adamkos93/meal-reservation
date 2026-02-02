@@ -122,11 +122,21 @@ export class MealService {
     };
   }
 
+  // Get meal rate for a specific month (uses first day of month to determine rate)
+  getMealRateForMonth(year: number, month: number, settings: AppSettings): number {
+    const periods = settings.mealRatePeriods || [];
+    // Use first day of the month to determine rate
+    const firstDayOfMonth = `${year}-${String(month + 1).padStart(2, '0')}-01`;
+    const matchingPeriod = periods.find(p => firstDayOfMonth >= p.startDate && firstDayOfMonth <= p.endDate);
+    return matchingPeriod ? matchingPeriod.rate : settings.globalMealRate;
+  }
+
   // Get monthly report
   async getMonthlyReport(year: number, month: number): Promise<MonthlyReport> {
     const children = await this.storage.getAllChildren();
     const activeChildren = children.filter(c => c.isActive);
     const settings = await this.getSettings();
+    const mealRate = this.getMealRateForMonth(year, month, settings);
     const workingDays = this.dateService.getWorkingDaysInMonth(year, month);
     const allCancellations = await this.storage.getAllCancellations();
 
@@ -146,7 +156,7 @@ export class MealService {
 
       const cancelledDays = childCancellations.length;
       const mealsToPay = childWorkingDays.length - cancelledDays;
-      const amountToPay = mealsToPay * settings.globalMealRate;
+      const amountToPay = mealsToPay * mealRate;
 
       return {
         childId: child.id,
@@ -165,7 +175,7 @@ export class MealService {
       year,
       month,
       monthName: this.dateService.getMonthName(month),
-      mealRate: settings.globalMealRate,
+      mealRate,
       totalWorkingDays: workingDays.length,
       childSummaries,
       totalAmount

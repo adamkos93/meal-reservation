@@ -1,4 +1,4 @@
-import { Component, inject, OnInit } from '@angular/core';
+import { Component, inject, OnInit, signal } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { RouterLink } from '@angular/router';
 import { AppState, CalendarDay } from '../../state/app.state';
@@ -30,13 +30,28 @@ import { AuthService } from '../../core/services/auth.service';
             </div>
             <div class="next-day-details">
               <span class="next-day-date">{{ nextDay.formatted }}</span>
-              <span class="next-day-cancellations" [class.has-cancellations]="nextDay.cancellationsCount > 0">
+              <div class="next-day-cancellations" [class.has-cancellations]="nextDay.cancellationsCount > 0">
                 @if (nextDay.cancellationsCount > 0) {
-                  ❌ Odwołano: {{ nextDay.cancellationsCount }} {{ nextDay.cancellationsCount === 1 ? 'posiłek' : (nextDay.cancellationsCount < 5 ? 'posiłki' : 'posiłków') }}
+                  <div class="cancellations-header" (click)="toggleCancelledList()">
+                    <span>❌ Odwołano: {{ nextDay.cancellationsCount }} {{ nextDay.cancellationsCount === 1 ? 'posiłek' : (nextDay.cancellationsCount < 5 ? 'posiłki' : 'posiłków') }}</span>
+                    <span class="accordion-icon">{{ showCancelledList() ? '▲' : '▼' }}</span>
+                  </div>
+                  @if (showCancelledList()) {
+                    <ul class="cancelled-children-list">
+                      @for (child of nextDay.cancelledChildren; track child.id) {
+                        <li>
+                          <span class="child-nickname">{{ child.nickname }}</span>
+                          @if (child.identifier) {
+                            <span class="child-identifier">({{ child.identifier }})</span>
+                          }
+                        </li>
+                      }
+                    </ul>
+                  }
                 } @else {
-                  ✅ Brak odwołań
+                  <span>✅ Brak odwołań</span>
                 }
-              </span>
+              </div>
             </div>
           </div>
         }
@@ -234,11 +249,43 @@ import { AuthService } from '../../core/services/auth.service';
       padding: 0.5rem 0.75rem;
       background: rgba(255,255,255,0.2);
       border-radius: 8px;
-      display: inline-block;
     }
 
     .next-day-cancellations.has-cancellations {
       background: rgba(244, 67, 54, 0.3);
+    }
+
+    .cancellations-header {
+      cursor: pointer;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+
+    .accordion-icon {
+      font-size: 0.75rem;
+      margin-left: 0.5rem;
+    }
+
+    .cancelled-children-list {
+      list-style: none;
+      padding: 0.5rem 0 0;
+      margin: 0.5rem 0 0;
+      border-top: 1px solid rgba(255,255,255,0.3);
+    }
+
+    .cancelled-children-list li {
+      padding: 0.25rem 0;
+      font-size: 0.875rem;
+    }
+
+    .child-nickname {
+      font-weight: 500;
+    }
+
+    .child-identifier {
+      opacity: 0.8;
+      margin-left: 0.25rem;
     }
 
     .calendar-container {
@@ -572,9 +619,16 @@ export class DashboardComponent implements OnInit {
   private authService = inject(AuthService);
 
   dayNames = this.dateService.getShortDayNames();
+  
+  private _showCancelledList = signal(false);
+  showCancelledList = this._showCancelledList.asReadonly();
 
   async ngOnInit() {
     await this.state.initialize();
+  }
+
+  toggleCancelledList() {
+    this._showCancelledList.update(v => !v);
   }
 
   onDayClick(day: CalendarDay) {

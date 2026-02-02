@@ -3,6 +3,13 @@ export interface Holiday {
   name: string; // Nazwa dnia wolnego (np. "Boże Narodzenie")
 }
 
+export interface MealRatePeriod {
+  id: string;
+  startDate: string; // Format YYYY-MM-DD
+  endDate: string; // Format YYYY-MM-DD
+  rate: number; // PLN per day
+}
+
 export interface AppSettings {
   id: string;
   globalMealRate: number; // PLN per day (za dzień wyżywienia)
@@ -10,6 +17,7 @@ export interface AppSettings {
   adminPin: string; // PIN administratora
   showPaymentPanel: boolean; // Feature flag - czy pokazywać panel płatności rodzicom
   holidays: Holiday[]; // Dni wolne (święta)
+  mealRatePeriods?: MealRatePeriod[]; // Opcjonalne zakresy czasowe z innymi stawkami
 }
 
 export const DEFAULT_SETTINGS: AppSettings = {
@@ -18,5 +26,6 @@ export const DEFAULT_SETTINGS: AppSettings = {
   deadlineHour: 17,
   adminPin: '1234',
   showPaymentPanel: true,
-  holidays: []
+  holidays: [],
+  mealRatePeriods: []
 };

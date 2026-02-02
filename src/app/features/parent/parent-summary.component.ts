@@ -357,19 +357,31 @@ export class ParentSummaryComponent implements OnInit {
       };
     }).sort((a, b) => a.dateStr.localeCompare(b.dateStr));
 
+    // Get meal rate for this month (uses first day of month to determine rate)
+    const mealRate = this.getMealRateForMonth(year, month, settings);
+
     const mealsToPay = workingDays.length - cancellations.length;
-    const amountToPay = mealsToPay * settings.globalMealRate;
+    const amountToPay = mealsToPay * mealRate;
 
     this.summary.set({
       workingDays: workingDays.length,
       cancelledDays: cancellations.length,
       mealsToPay,
-      mealRate: settings.globalMealRate,
+      mealRate,
       amountToPay,
       cancelledDates
     });
 
     this.isLoading.set(false);
+  }
+
+  // Get meal rate for a specific month (uses first day of month to determine rate)
+  private getMealRateForMonth(year: number, month: number, settings: { globalMealRate: number; mealRatePeriods?: { startDate: string; endDate: string; rate: number }[] }): number {
+    const periods = settings.mealRatePeriods || [];
+    // Use first day of the month to determine rate
+    const firstDayOfMonth = `${year}-${String(month + 1).padStart(2, '0')}-01`;
+    const matchingPeriod = periods.find(p => firstDayOfMonth >= p.startDate && firstDayOfMonth <= p.endDate);
+    return matchingPeriod ? matchingPeriod.rate : settings.globalMealRate;
   }
 
   async previousMonth() {

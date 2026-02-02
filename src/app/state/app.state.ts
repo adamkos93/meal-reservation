@@ -1,5 +1,5 @@
 import { Injectable, signal, computed, inject } from '@angular/core';
-import { Child, MealCancellation, AppSettings, DEFAULT_SETTINGS, Holiday } from '../shared/models';
+import { Child, MealCancellation, AppSettings, DEFAULT_SETTINGS, Holiday, MealRatePeriod } from '../shared/models';
 import { FirestoreService, ChildService, MealService, DateService } from '../core/services';
 import { addDays } from 'date-fns';
 
@@ -16,11 +16,18 @@ export interface CalendarDay {
   holidayName: string | null;
 }
 
+export interface CancelledChildInfo {
+  id: string;
+  nickname: string;
+  identifier: string | null;
+}
+
 export interface NextWorkingDayInfo {
   date: Date;
   dateStr: string;
   formatted: string;
   cancellationsCount: number;
+  cancelledChildren: CancelledChildInfo[];
 }
 
 @Injectable({
@@ -99,6 +106,7 @@ export class AppState {
   readonly nextWorkingDayInfo = computed((): NextWorkingDayInfo | null => {
     const settings = this._settings();
     const cancellations = this._cancellations();
+    const children = this._children();
     const holidays = settings.holidays || [];
     const today = new Date();
 
@@ -118,11 +126,23 @@ export class AppState {
     const dateStr = this.dateService.toISODate(nextWorkingDay);
     const dayCancellations = cancellations.filter(c => c.date === dateStr);
 
+    // Map cancellations to child info
+    const cancelledChildren: CancelledChildInfo[] = dayCancellations
+      .map(c => children.find(child => child.id === c.childId))
+      .filter((child): child is Child => child !== undefined)
+      .map(child => ({
+        id: child.id,
+        nickname: child.nickname,
+        identifier: child.identifier
+      }))
+      .sort((a, b) => a.nickname.localeCompare(b.nickname));
+
     return {
       date: nextWorkingDay,
       dateStr,
       formatted: this.dateService.formatPolish(nextWorkingDay, 'EEEE, d MMMM'),
-      cancellationsCount: dayCancellations.length
+      cancellationsCount: dayCancellations.length,
+      cancelledChildren
     };
   });
 
@@ -285,6 +305,39 @@ export class AppState {
       holidays: holidays.filter(h => h.date !== date) 
     });
     this._settings.set(updated);
+  }
+
+  // Meal Rate Periods
+  async addMealRatePeriod(startDate: string, endDate: string, rate: number): Promise<void> {
+    const currentSettings = this._settings();
+    const periods = currentSettings.mealRatePeriods || [];
+    const newPeriod: MealRatePeriod = {
+      id: crypto.randomUUID(),
+      startDate,
+      endDate,
+      rate
+    };
+    const updated = await this.mealService.updateSettings({
+      mealRatePeriods: [...periods, newPeriod].sort((a, b) => a.startDate.localeCompare(b.startDate))
+    });
+    this._settings.set(updated);
+  }
+
+  async removeMealRatePeriod(id: string): Promise<void> {
+    const currentSettings = this._settings();
+    const periods = (currentSettings.mealRatePeriods || []).filter(p => p.id !== id);
+    const updated = await this.mealService.updateSettings({ mealRatePeriods: periods });
+    this._settings.set(updated);
+  }
+
+  // Get meal rate for a specific month (uses first day of month to determine rate)
+  getMealRateForMonth(year: number, month: number): number {
+    const settings = this._settings();
+    const periods = settings.mealRatePeriods || [];
+    // Use first day of the month to determine rate
+    const firstDayOfMonth = `${year}-${String(month + 1).padStart(2, '0')}-01`;
+    const matchingPeriod = periods.find(p => firstDayOfMonth >= p.startDate && firstDayOfMonth <= p.endDate);
+    return matchingPeriod ? matchingPeriod.rate : settings.globalMealRate;
   }
 
   // Reports
