@@ -38,51 +38,46 @@ import { Holiday } from '../../shared/models';
       </section>
 
       <section class="settings-section">
-        <h2>📅 Okresy ze zmienioną stawką</h2>
+        <h2>📅 Zmiana stawki od miesiąca</h2>
         <p class="section-description">
-          Opcjonalnie możesz ustawić różne stawki dla określonych zakresów dat (np. podwyżka od nowego roku).
-          Dla miesięcy spoza zdefiniowanych okresów używana jest domyślna stawka powyżej.
+          Ustaw nową stawkę obowiązującą od wybranego miesiąca. Stawka obowiązuje do momentu ustawienia kolejnej zmiany.
+          Dla miesięcy przed pierwszą zmianą używana jest domyślna stawka powyżej.
         </p>
-        <div class="period-form">
-          <div class="period-dates">
-            <input
-              type="date"
-              [(ngModel)]="newPeriodStartDate"
-              class="period-input"
-              placeholder="Od"
-            />
-            <span class="period-separator">—</span>
-            <input
-              type="date"
-              [(ngModel)]="newPeriodEndDate"
-              class="period-input"
-              placeholder="Do"
-            />
+        <div class="rate-change-form">
+          <div class="form-field">
+            <label>Od miesiąca</label>
+            <select [(ngModel)]="newPeriodStartMonth" class="form-select">
+              <option value="">Wybierz miesiąc...</option>
+              @for (month of availableMonths(); track month.value) {
+                <option [value]="month.value">{{ month.label }}</option>
+              }
+            </select>
           </div>
-          <div class="period-rate-row">
+          <div class="form-field">
+            <label>Nowa stawka (PLN)</label>
             <input
               type="number"
               [(ngModel)]="newPeriodRate"
               min="0"
               step="0.01"
-              class="period-rate-input"
-              placeholder="Stawka PLN"
+              class="form-input"
+              placeholder="np. 15.00"
             />
-            <button 
-              class="btn primary" 
-              (click)="addMealRatePeriod()" 
-              [disabled]="!newPeriodStartDate || !newPeriodEndDate || !newPeriodRate"
-            >
-              ➕ Dodaj
-            </button>
           </div>
+          <button 
+            class="btn primary add-rate-btn" 
+            (click)="addMealRatePeriod()" 
+            [disabled]="!newPeriodStartMonth || !newPeriodRate"
+          >
+            ➕ Dodaj zmianę
+          </button>
         </div>
         @if (mealRatePeriods().length > 0) {
           <ul class="periods-list">
             @for (period of mealRatePeriods(); track period.id) {
               <li class="period-item">
                 <div class="period-info">
-                  <span class="period-dates-display">{{ formatPeriodDate(period.startDate) }} — {{ formatPeriodDate(period.endDate) }}</span>
+                  <span class="period-dates-display">Od {{ formatPeriodMonth(period.startMonth) }}</span>
                   <span class="period-rate-display">{{ period.rate.toFixed(2) }} PLN/dzień</span>
                 </div>
                 <button class="btn small danger" (click)="removeMealRatePeriod(period.id)">❌</button>
@@ -90,24 +85,27 @@ import { Holiday } from '../../shared/models';
             }
           </ul>
         } @else {
-          <p class="empty-message">Brak dodanych okresów — używana jest domyślna stawka</p>
+          <p class="empty-message">Brak zmian stawki — używana jest domyślna stawka</p>
         }
       </section>
 
       <section class="settings-section">
-        <h2>Godzina deadline'u</h2>
-        <div class="setting-row">
-          <label for="deadlineHour">Godzina, do której można odwołać posiłek (dzień wcześniej)</label>
-          <div class="input-group">
-            <select id="deadlineHour" [(ngModel)]="deadlineHour">
+        <h2>⏰ Godzina deadline'u</h2>
+        <p class="section-description">
+          Godzina, do której rodzice mogą odwołać posiłek na następny dzień roboczy.
+        </p>
+        <div class="deadline-form">
+          <div class="form-field">
+            <label>Deadline odwołania</label>
+            <select id="deadlineHour" [(ngModel)]="deadlineHour" class="form-select">
               @for (hour of hours; track hour) {
                 <option [value]="hour">{{ hour }}:00</option>
               }
             </select>
-            <button class="btn primary" (click)="saveDeadlineHour()" [disabled]="isSaving()">
-              Zapisz
-            </button>
           </div>
+          <button class="btn primary" (click)="saveDeadlineHour()" [disabled]="isSaving()">
+            💾 Zapisz
+          </button>
         </div>
       </section>
 
@@ -354,6 +352,74 @@ import { Holiday } from '../../shared/models';
       flex-direction: column;
       gap: 0.5rem;
       margin-bottom: 1rem;
+    }
+
+    .rate-change-form {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 1rem;
+      margin-bottom: 1rem;
+    }
+
+    .rate-change-form .add-rate-btn {
+      grid-column: 1 / -1;
+    }
+
+    .deadline-form {
+      display: flex;
+      gap: 1rem;
+      align-items: flex-end;
+    }
+
+    .deadline-form .form-field {
+      flex: 1;
+    }
+
+    .form-field {
+      display: flex;
+      flex-direction: column;
+      gap: 0.5rem;
+    }
+
+    .form-field label {
+      font-size: 0.875rem;
+      font-weight: 500;
+      color: #555;
+    }
+
+    .form-input, .form-select {
+      padding: 0.75rem 1rem;
+      border: 1px solid #ddd;
+      border-radius: 8px;
+      font-size: 1rem;
+      background: white;
+      transition: border-color 0.2s, box-shadow 0.2s;
+    }
+
+    .form-input:focus, .form-select:focus {
+      outline: none;
+      border-color: #4CAF50;
+      box-shadow: 0 0 0 3px rgba(76, 175, 80, 0.1);
+    }
+
+    .form-select {
+      cursor: pointer;
+      appearance: none;
+      background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 12 12'%3E%3Cpath fill='%23666' d='M6 8L1 3h10z'/%3E%3C/svg%3E");
+      background-repeat: no-repeat;
+      background-position: right 1rem center;
+      padding-right: 2.5rem;
+    }
+
+    @media (max-width: 480px) {
+      .rate-change-form {
+        grid-template-columns: 1fr;
+      }
+
+      .deadline-form {
+        flex-direction: column;
+        align-items: stretch;
+      }
     }
 
     .period-dates {
@@ -687,8 +753,7 @@ export class SettingsComponent {
   adminPin = '';
   newHolidayDate = '';
   newHolidayName = '';
-  newPeriodStartDate = '';
-  newPeriodEndDate = '';
+  newPeriodStartMonth = '';
   newPeriodRate: number | null = null;
   hours = Array.from({ length: 19 }, (_, i) => i + 5); // 5-23
   
@@ -711,7 +776,23 @@ export class SettingsComponent {
 
   mealRatePeriods = computed(() => {
     const settings = this.state.settings();
-    return (settings.mealRatePeriods || []).slice().sort((a, b) => a.startDate.localeCompare(b.startDate));
+    return (settings.mealRatePeriods || []).slice().sort((a, b) => a.startMonth.localeCompare(b.startMonth));
+  });
+
+  // Generate list of months for the next 24 months
+  availableMonths = computed(() => {
+    const months: { value: string; label: string }[] = [];
+    const now = new Date();
+    
+    for (let i = 0; i < 24; i++) {
+      const date = new Date(now.getFullYear(), now.getMonth() + i, 1);
+      const value = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}`;
+      const label = this.dateService.formatPolish(date, 'LLLL yyyy');
+      // Capitalize first letter
+      months.push({ value, label: label.charAt(0).toUpperCase() + label.slice(1) });
+    }
+    
+    return months;
   });
 
   formatHolidayDate(dateStr: string): string {
@@ -732,16 +813,17 @@ export class SettingsComponent {
     await this.state.removeHoliday(date);
   }
 
-  formatPeriodDate(dateStr: string): string {
-    const date = this.dateService.parseISODate(dateStr);
-    return this.dateService.formatPolish(date, 'd MMM yyyy');
+  formatPeriodMonth(monthStr: string): string {
+    // monthStr is YYYY-MM format
+    const [year, month] = monthStr.split('-').map(Number);
+    const date = new Date(year, month - 1, 1);
+    return this.dateService.formatPolish(date, 'LLLL yyyy');
   }
 
   async addMealRatePeriod() {
-    if (!this.newPeriodStartDate || !this.newPeriodEndDate || !this.newPeriodRate) return;
-    await this.state.addMealRatePeriod(this.newPeriodStartDate, this.newPeriodEndDate, this.newPeriodRate);
-    this.newPeriodStartDate = '';
-    this.newPeriodEndDate = '';
+    if (!this.newPeriodStartMonth || !this.newPeriodRate) return;
+    await this.state.addMealRatePeriod(this.newPeriodStartMonth, this.newPeriodRate);
+    this.newPeriodStartMonth = '';
     this.newPeriodRate = null;
     this._saveSuccess.set(true);
     setTimeout(() => this._saveSuccess.set(false), 3000);

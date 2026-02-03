@@ -122,13 +122,24 @@ export class MealService {
     };
   }
 
-  // Get meal rate for a specific month (uses first day of month to determine rate)
+  // Get meal rate for a specific month
   getMealRateForMonth(year: number, month: number, settings: AppSettings): number {
     const periods = settings.mealRatePeriods || [];
-    // Use first day of the month to determine rate
-    const firstDayOfMonth = `${year}-${String(month + 1).padStart(2, '0')}-01`;
-    const matchingPeriod = periods.find(p => firstDayOfMonth >= p.startDate && firstDayOfMonth <= p.endDate);
-    return matchingPeriod ? matchingPeriod.rate : settings.globalMealRate;
+    const targetMonth = `${year}-${String(month + 1).padStart(2, '0')}`;
+    
+    // Find all periods that start on or before the target month
+    const applicablePeriods = periods.filter(p => p.startMonth <= targetMonth);
+    
+    if (applicablePeriods.length === 0) {
+      return settings.globalMealRate;
+    }
+    
+    // Get the most recent one (highest startMonth)
+    const latestPeriod = applicablePeriods.reduce((latest, current) => 
+      current.startMonth > latest.startMonth ? current : latest
+    );
+    
+    return latestPeriod.rate;
   }
 
   // Get monthly report

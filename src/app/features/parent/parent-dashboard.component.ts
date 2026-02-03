@@ -1,4 +1,4 @@
-import { Component, inject, OnInit } from '@angular/core';
+import { Component, computed, inject, OnInit } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { RouterLink } from '@angular/router';
 import { AuthService } from '../../core/services';
@@ -47,7 +47,7 @@ import { AppState } from '../../state/app.state';
           <h2>ℹ️ Informacje</h2>
           <div class="info-row">
             <span>Stawka za dzień wyżywienia</span>
-            <strong>{{ state.settings().globalMealRate.toFixed(2) }} PLN</strong>
+            <strong>{{ currentMealRate().toFixed(2) }} PLN</strong>
           </div>
           <div class="info-row">
             <span>Termin odwoływania</span>
@@ -184,6 +184,14 @@ import { AppState } from '../../state/app.state';
 export class ParentDashboardComponent implements OnInit {
   auth = inject(AuthService);
   state = inject(AppState);
+
+  // Reactive meal rate for current month
+  currentMealRate = computed(() => {
+    const now = new Date();
+    const year = now.getFullYear();
+    const month = now.getMonth();
+    return this.state.getMealRateForMonth(year, month);
+  });
 
   async ngOnInit() {
     await this.state.initialize();

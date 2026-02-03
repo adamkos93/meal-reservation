@@ -5,8 +5,7 @@ export interface Holiday {
 
 export interface MealRatePeriod {
   id: string;
-  startDate: string; // Format YYYY-MM-DD
-  endDate: string; // Format YYYY-MM-DD
+  startMonth: string; // Format YYYY-MM (miesiąc od którego obowiązuje stawka)
   rate: number; // PLN per day
 }
 

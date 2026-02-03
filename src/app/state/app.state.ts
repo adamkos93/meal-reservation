@@ -308,17 +308,30 @@ export class AppState {
   }
 
   // Meal Rate Periods
-  async addMealRatePeriod(startDate: string, endDate: string, rate: number): Promise<void> {
+  async addMealRatePeriod(startMonth: string, rate: number): Promise<void> {
     const currentSettings = this._settings();
     const periods = currentSettings.mealRatePeriods || [];
-    const newPeriod: MealRatePeriod = {
-      id: crypto.randomUUID(),
-      startDate,
-      endDate,
-      rate
-    };
+    
+    // Check if period for this month already exists - if so, update it
+    const existingIndex = periods.findIndex(p => p.startMonth === startMonth);
+    let newPeriods: MealRatePeriod[];
+    
+    if (existingIndex >= 0) {
+      // Update existing period
+      newPeriods = [...periods];
+      newPeriods[existingIndex] = { ...newPeriods[existingIndex], rate };
+    } else {
+      // Add new period
+      const newPeriod: MealRatePeriod = {
+        id: crypto.randomUUID(),
+        startMonth,
+        rate
+      };
+      newPeriods = [...periods, newPeriod];
+    }
+    
     const updated = await this.mealService.updateSettings({
-      mealRatePeriods: [...periods, newPeriod].sort((a, b) => a.startDate.localeCompare(b.startDate))
+      mealRatePeriods: newPeriods.sort((a, b) => a.startMonth.localeCompare(b.startMonth))
     });
     this._settings.set(updated);
   }
@@ -330,14 +343,26 @@ export class AppState {
     this._settings.set(updated);
   }
 
-  // Get meal rate for a specific month (uses first day of month to determine rate)
+  // Get meal rate for a specific month
+  // Finds the latest period whose startMonth <= given month
   getMealRateForMonth(year: number, month: number): number {
     const settings = this._settings();
     const periods = settings.mealRatePeriods || [];
-    // Use first day of the month to determine rate
-    const firstDayOfMonth = `${year}-${String(month + 1).padStart(2, '0')}-01`;
-    const matchingPeriod = periods.find(p => firstDayOfMonth >= p.startDate && firstDayOfMonth <= p.endDate);
-    return matchingPeriod ? matchingPeriod.rate : settings.globalMealRate;
+    const targetMonth = `${year}-${String(month + 1).padStart(2, '0')}`;
+    
+    // Find all periods that start on or before the target month
+    const applicablePeriods = periods.filter(p => p.startMonth <= targetMonth);
+    
+    if (applicablePeriods.length === 0) {
+      return settings.globalMealRate;
+    }
+    
+    // Get the most recent one (highest startMonth)
+    const latestPeriod = applicablePeriods.reduce((latest, current) => 
+      current.startMonth > latest.startMonth ? current : latest
+    );
+    
+    return latestPeriod.rate;
   }
 
   // Reports
